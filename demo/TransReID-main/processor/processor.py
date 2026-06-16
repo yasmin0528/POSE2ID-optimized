@@ -161,15 +161,20 @@ def do_inference(cfg,
     pq_ipg_weights = None
     if cfg.TEST.IPG and cfg.TEST.PQ_IPG:
         pose_dir = cfg.TEST.POSE_DIR
+        pq_alpha = cfg.TEST.PQ_ALPHA
+        pq_beta = cfg.TEST.PQ_BETA
+        pq_gamma = cfg.TEST.PQ_GAMMA
+        pq_temperature = cfg.TEST.PQ_TEMPERATURE
+        logger.info(f"PQ-IPG params: alpha={pq_alpha}, beta={pq_beta}, gamma={pq_gamma}, temperature={pq_temperature}")
         if os.path.exists(pose_dir):
             pose_files = sorted([f for f in os.listdir(pose_dir) if f.endswith(('.jpg','.png','.jpeg'))])
             if len(pose_files) > 0:
                 qualities = []
                 for f in pose_files:
                     pose_img = np.array(Image.open(os.path.join(pose_dir, f)).convert("RGB"))
-                    q = compute_pose_quality_from_image(pose_img)
+                    q = compute_pose_quality_from_image(pose_img, alpha=pq_alpha, beta=pq_beta, gamma=pq_gamma)
                     qualities.append(q)
-                pq_ipg_weights = compute_pq_ipg_weights(qualities).to(device)
+                pq_ipg_weights = compute_pq_ipg_weights(qualities, temperature=pq_temperature).to(device)
                 logger.info(f"PQ-IPG enabled. Pre-computed weights: {pq_ipg_weights.cpu().tolist()}")
             else:
                 logger.warning(f"PQ-IPG: No pose images found in {pose_dir}. Falling back to equal weights.")

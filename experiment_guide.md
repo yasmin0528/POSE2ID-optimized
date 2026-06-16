@@ -110,6 +110,7 @@ TEST:
 cd demo/TransReID-main
 
 # 基线：标准 IPG
+cd demo/TransReID-main
 python test.py \
     --config_file configs/Market/vit_transreid_stride.yml \
     TEST.PQ_IPG False
@@ -124,9 +125,8 @@ python test.py \
 
 | Method | Rank-1 | mAP | 说明 |
 |--------|--------|-----|------|
-| Pose2ID (paper reported) | 94.80 | 90.38 | 论文原文 |
-| Pose2ID (复现) | | | 你的复现结果 |
-| Pose2ID + PQ-IPG | | | 本创新点 |
+| Pose2ID (复现) | 94.86%| 90.40%| 你的复现结果 |
+| Pose2ID + PQ-IPG |94.80% | 90.37%| 本创新点 |
 
 ---
 

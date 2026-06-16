@@ -181,6 +181,14 @@ _C.TEST.WEIGHT = ""
 _C.TEST.PQ_IPG = False
 # Path to standard pose images for PQ-IPG weight computation
 _C.TEST.POSE_DIR = "IPG/standard_poses"
+# PQ-IPG: weight for head/upper-body prominence (alpha)
+_C.TEST.PQ_ALPHA = 0.4
+# PQ-IPG: weight for body coverage (beta)
+_C.TEST.PQ_BETA = 0.3
+# PQ-IPG: weight for symmetry/frontal-view bonus (gamma)
+_C.TEST.PQ_GAMMA = 0.3
+# PQ-IPG: softmax temperature (lower = sharper weights)
+_C.TEST.PQ_TEMPERATURE = 0.5
 # Which feature of BNNeck to be used for test, before or after BNNneck, options: 'before' or 'after'
 _C.TEST.NECK_FEAT = 'after'
 # Whether feature is nomalized before test, if yes, it is equivalent to cosine distance
