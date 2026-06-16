@@ -177,6 +177,10 @@ _C.TEST.NFC = False
 _C.TEST.IPG = False
 # Path to trained model
 _C.TEST.WEIGHT = ""
+# If test with PQ-IPG (Pose Quality-aware IPG), options: 'True','False'
+_C.TEST.PQ_IPG = False
+# Path to standard pose images for PQ-IPG weight computation
+_C.TEST.POSE_DIR = "IPG/standard_poses"
 # Which feature of BNNeck to be used for test, before or after BNNneck, options: 'before' or 'after'
 _C.TEST.NECK_FEAT = 'after'
 # Whether feature is nomalized before test, if yes, it is equivalent to cosine distance

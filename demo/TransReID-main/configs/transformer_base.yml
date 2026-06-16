@@ -1,6 +1,6 @@
 MODEL:
   PRETRAIN_CHOICE: 'imagenet'
-  PRETRAIN_PATH: '/home/heshuting/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth'
+  PRETRAIN_PATH: '/root/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth'
   METRIC_LOSS_TYPE: 'triplet'
   IF_LABELSMOOTH: 'off'
   IF_WITH_CENTER: 'no'
@@ -20,8 +20,8 @@ INPUT:
   PIXEL_STD: [0.5, 0.5, 0.5]
 
 DATASETS:
-  NAMES: ('dukemtmc')
-  ROOT_DIR: ('../../data')
+  NAMES: ('market1501')
+  ROOT_DIR: ('/root/autodl-tmp/Pose2ID')
 
 DATALOADER:
   SAMPLER: 'softmax_triplet'

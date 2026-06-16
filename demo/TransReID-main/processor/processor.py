@@ -5,8 +5,11 @@ import torch
 import torch.nn as nn
 from utils.meter import AverageMeter
 from utils.metrics import R1_mAP_eval
+from utils.pose_quality import compute_pose_quality_from_image, compute_pq_ipg_weights
 from torch.cuda import amp
 import torch.distributed as dist
+import numpy as np
+from PIL import Image
 
 def do_train(cfg,
              model,
@@ -154,6 +157,25 @@ def do_inference(cfg,
     model.eval()
     img_path_list = []
 
+    # Precompute PQ-IPG weights if IPG is enabled
+    pq_ipg_weights = None
+    if cfg.TEST.IPG and cfg.TEST.PQ_IPG:
+        pose_dir = cfg.TEST.POSE_DIR
+        if os.path.exists(pose_dir):
+            pose_files = sorted([f for f in os.listdir(pose_dir) if f.endswith(('.jpg','.png','.jpeg'))])
+            if len(pose_files) > 0:
+                qualities = []
+                for f in pose_files:
+                    pose_img = np.array(Image.open(os.path.join(pose_dir, f)).convert("RGB"))
+                    q = compute_pose_quality_from_image(pose_img)
+                    qualities.append(q)
+                pq_ipg_weights = compute_pq_ipg_weights(qualities).to(device)
+                logger.info(f"PQ-IPG enabled. Pre-computed weights: {pq_ipg_weights.cpu().tolist()}")
+            else:
+                logger.warning(f"PQ-IPG: No pose images found in {pose_dir}. Falling back to equal weights.")
+        else:
+            logger.warning(f"PQ-IPG: Pose directory {pose_dir} not found. Falling back to equal weights.")
+
     for n_iter, (img, pid, camid, camids, target_view, imgpath, imgs_ipg) in enumerate(val_loader):
         with torch.no_grad():
             img = img.to(device)
@@ -162,13 +184,22 @@ def do_inference(cfg,
             camids = torch.zeros_like(camids)
             feat = model(img, cam_label=camids, view_label=target_view)
             if cfg.TEST.IPG:
-                feat_ipg = torch.zeros(feat.size()).to(device)
-                for img_ipg in imgs_ipg:
-                    feat_ipg += model(img_ipg.to(device), cam_label=camids, view_label=target_view)
-                evaluator.update((feat, pid, camid, feat_ipg/len(imgs_ipg)))
+                if pq_ipg_weights is not None and len(imgs_ipg) == len(pq_ipg_weights):
+                    # PQ-IPG: weighted fusion
+                    feat_ipg = torch.zeros(feat.size()).to(device)
+                    for i, img_ipg in enumerate(imgs_ipg):
+                        feat_i = model(img_ipg.to(device), cam_label=camids, view_label=target_view)
+                        feat_ipg += pq_ipg_weights[i] * feat_i
+                else:
+                    # Standard IPG: equal-weight averaging
+                    feat_ipg = torch.zeros(feat.size()).to(device)
+                    for img_ipg in imgs_ipg:
+                        feat_ipg += model(img_ipg.to(device), cam_label=camids, view_label=target_view)
+                    feat_ipg = feat_ipg / len(imgs_ipg)
+                evaluator.update((feat, pid, camid, feat_ipg))
             else:
                 evaluator.update((feat, pid, camid, feat))
-            
+
             img_path_list.extend(imgpath)
 
     cmc, mAP, _, _, _, _, _ = evaluator.compute()

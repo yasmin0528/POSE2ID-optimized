@@ -10,7 +10,7 @@ from accelerate.utils import DistributedDataParallelKwargs
 from diffusers import AutoencoderKL, DDIMScheduler
 from diffusers.utils import check_min_version
 from omegaconf import OmegaConf
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from torchvision.transforms import *
 # from DWPose.dwpose_utils import DWposeDetector
 from src.models.mutual_self_attention import ReferenceAttentionControl
@@ -25,6 +25,11 @@ import pickle
 
 warnings.filterwarnings("ignore")
 from torch.autograd import Variable
+
+# Add project root to path for pose_quality import
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '../demo/TransReID-main'))
+from utils.pose_quality import compute_pose_quality_from_image, compute_pq_ipg_weights
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.10.0.dev0")
 
@@ -185,22 +190,57 @@ def log_validation(
             batch_size = len(pose_paths),
             generator=generator,
         ).images
+
+        # Compute PQ-IPG weights for visualization
+        qualities = []
+        for pose_path in pose_paths:
+            pose_img_arr = cv2.imread(pose_path)
+            if pose_img_arr is not None:
+                q = compute_pose_quality_from_image(pose_img_arr)
+                qualities.append(q)
+            else:
+                qualities.append(0.5)
+        weights = compute_pq_ipg_weights(qualities)
+
         w, h = 128, 256
         ref_image_pil = ref_image_list[0].resize((w, h))
         num = 1 + len(pose_paths) * 2
-        canvas = Image.new("RGB", (w *num, h), "white")
-        canvas.paste(ref_image_pil, (0, 0))
+        canvas = Image.new("RGB", (w *num, h + 40), "white")
+        canvas.paste(ref_image_pil, (0, 20))
+
+        # Draw reference label
+        draw = ImageDraw.Draw(canvas)
+        draw.text((5, 2), "Ref", fill="black")
 
         for i in range(len(pose_paths)):
             image_i = image[i, :, 0].permute(1, 2, 0).cpu().numpy()
             res_image_pil = Image.fromarray((image_i * 255).astype(np.uint8))
             res_image_pil = res_image_pil.resize((w, h))
             pose_image_pil = pose_image_list[i].resize((w, h))
-            canvas.paste(pose_image_pil, (i*w*2 +w, 0))
-            canvas.paste(res_image_pil, (i*w*2 +2*w, 0))
+            canvas.paste(pose_image_pil, (i*w*2 +w, 20))
+            canvas.paste(res_image_pil, (i*w*2 +2*w, 20))
+
+            # Draw quality weight label
+            weight_text = f"w={weights[i]:.3f}"
+            draw.text((i*w*2 + w, h + 22), weight_text, fill="black")
+
+            # Draw quality bar (green for high, red for low)
+            bar_width = w
+            bar_height = 6
+            bar_x = i*w*2 + w
+            bar_y = h + 38
+            # Background bar (gray)
+            draw.rectangle([bar_x, bar_y, bar_x + bar_width, bar_y + bar_height], fill="lightgray")
+            # Quality bar (color based on weight)
+            color_val = int(255 * (1 - weights[i].item()))
+            bar_color = (color_val, 255 - color_val, 0)  # red to green
+            fill_width = int(bar_width * weights[i].item())
+            draw.rectangle([bar_x, bar_y, bar_x + fill_width, bar_y + bar_height], fill=bar_color)
+
         out = os.path.join(out_dir, ref_name)
         canvas.save(out)
         print(f"Saved to {out}")
+        print(f"  PQ-IPG weights: {weights.tolist()}")
         inputs_list = []
         ref_image_list = []
         pose_image_list = []
