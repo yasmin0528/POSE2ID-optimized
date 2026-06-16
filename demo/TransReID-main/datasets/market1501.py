@@ -93,10 +93,11 @@ class Market1501(BaseImageDataset):
                 img_ipg_path = img_path.replace('bounding_box_test', 'bounding_box_test_gen').replace('query', 'query_gen')
                 pose_num = 8
                 img_paths_ipg =[]
+                parent_dir = osp.dirname(img_ipg_path)
+                name = osp.basename(img_ipg_path)
                 for i in range(pose_num):
-                    name = img_ipg_path.split('\\')[-1]
                     pose_name = 'pose' + str(i+1)
-                    img_path_ipg = img_ipg_path.replace(name, pose_name + '\\' + name)
+                    img_path_ipg = osp.join(parent_dir, pose_name, name)
                     if pid == 0:
                         img_paths_ipg.append(img_path)
                     else:

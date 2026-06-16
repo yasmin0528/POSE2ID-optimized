@@ -26,9 +26,9 @@ pip install -r demo/TransReID-main/requirements.txt
 
 ```bash
 # 基础可视化（8个标准姿态的 PQ-IPG 权重）
-python visualize_pq_ipg.py \
-    --pose_dir IPG/standard_poses \
-    --output viz_pq_ipg.png \
+python visualize_pq_ipg.py 
+    --pose_dir IPG/standard_poses 
+    --output viz_pq_ipg.png 
     --alpha 0.4 --beta 0.3
 
 # 额外分析 VeRi 数据集的真实关键点质量
@@ -62,7 +62,7 @@ Pose 5: quality=0.6582, weight=0.1382   (frontal, balanced   → high)
 cd IPG
 
 python inference.py 
-    --ckpt_dir pretrained 
+    --ckpt_dir /root/autodl-tmp/Pose2ID/pretrained 
     --pose_dir standard_poses 
     --ref_dir demo 
     --out_dir output_pqipg 
