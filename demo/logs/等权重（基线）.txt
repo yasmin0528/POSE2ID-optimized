@@ -1,0 +1,186 @@
+2026-06-16 14:58:17,971 transreid INFO: Namespace(config_file='configs/Market/vit_transreid_stride.yml', opts=['TEST.PQ_IPG', 'False'])
+2026-06-16 14:58:17,971 transreid INFO: Loaded configuration file configs/Market/vit_transreid_stride.yml
+2026-06-16 14:58:17,971 transreid INFO: 
+MODEL:
+  PRETRAIN_CHOICE: 'imagenet'
+  PRETRAIN_PATH: '/root/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth'
+  METRIC_LOSS_TYPE: 'triplet'
+  IF_LABELSMOOTH: 'off'
+  IF_WITH_CENTER: 'no'
+  NAME: 'transformer'
+  NO_MARGIN: True
+  DEVICE_ID: ('0')
+  TRANSFORMER_TYPE: 'vit_base_patch16_224_TransReID'
+  STRIDE_SIZE: [12, 12]
+  SIE_CAMERA: True
+  SIE_COE: 3.0
+  JPM: True
+  RE_ARRANGE: True
+
+INPUT:
+  SIZE_TRAIN: [256, 128]
+  SIZE_TEST: [256, 128]
+  PROB: 0.5 # random horizontal flip
+  RE_PROB: 0.5 # random erasing
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+
+DATASETS:
+  NAMES: ('market1501')
+  ROOT_DIR: ('/root/autodl-tmp/Pose2ID')
+
+DATALOADER:
+  SAMPLER: 'softmax_triplet'
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+
+SOLVER:
+  OPTIMIZER_NAME: 'SGD'
+  MAX_EPOCHS: 120
+  BASE_LR: 0.008
+  IMS_PER_BATCH: 64
+  WARMUP_METHOD: 'linear'
+  LARGE_FC_LR: False
+  CHECKPOINT_PERIOD: 120
+  LOG_PERIOD: 50
+  EVAL_PERIOD: 120
+  WEIGHT_DECAY:  1e-4
+  WEIGHT_DECAY_BIAS: 1e-4
+  BIAS_LR_FACTOR: 2
+
+TEST:
+  EVAL: True
+  IMS_PER_BATCH: 256
+  RE_RANKING: False
+  WEIGHT: '/root/autodl-tmp/Pose2ID/pretrained/transformer_20.pth'
+  NECK_FEAT: 'before'
+  FEAT_NORM: 'yes'
+  NFC: True
+  IPG: True
+  PQ_IPG: True
+  POSE_DIR: '/root/autodl-tmp/POSE2ID-optimized/IPG/standard_poses'
+
+OUTPUT_DIR: '../logs/market_vit_transreid_stride_optimized'
+
+
+
+2026-06-16 14:58:17,971 transreid INFO: Running with config:
+DATALOADER:
+  NUM_INSTANCE: 4
+  NUM_WORKERS: 8
+  SAMPLER: softmax_triplet
+DATASETS:
+  NAMES: market1501
+  ROOT_DIR: /root/autodl-tmp/Pose2ID
+INPUT:
+  PADDING: 10
+  PIXEL_MEAN: [0.5, 0.5, 0.5]
+  PIXEL_STD: [0.5, 0.5, 0.5]
+  PROB: 0.5
+  RE_PROB: 0.5
+  SIZE_TEST: [256, 128]
+  SIZE_TRAIN: [256, 128]
+MODEL:
+  ATT_DROP_RATE: 0.0
+  COS_LAYER: False
+  DEVICE: cuda
+  DEVICE_ID: 0
+  DEVIDE_LENGTH: 4
+  DIST_TRAIN: False
+  DROP_OUT: 0.0
+  DROP_PATH: 0.1
+  ID_LOSS_TYPE: softmax
+  ID_LOSS_WEIGHT: 1.0
+  IF_LABELSMOOTH: off
+  IF_WITH_CENTER: no
+  JPM: True
+  LAST_STRIDE: 1
+  METRIC_LOSS_TYPE: triplet
+  NAME: transformer
+  NECK: bnneck
+  NO_MARGIN: True
+  PRETRAIN_CHOICE: imagenet
+  PRETRAIN_PATH: /root/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth
+  RE_ARRANGE: True
+  SHIFT_NUM: 5
+  SHUFFLE_GROUP: 2
+  SIE_CAMERA: True
+  SIE_COE: 3.0
+  SIE_VIEW: False
+  STRIDE_SIZE: [12, 12]
+  TRANSFORMER_TYPE: vit_base_patch16_224_TransReID
+  TRIPLET_LOSS_WEIGHT: 1.0
+OUTPUT_DIR: ../logs/market_vit_transreid_stride_optimized
+SOLVER:
+  BASE_LR: 0.008
+  BIAS_LR_FACTOR: 2
+  CENTER_LOSS_WEIGHT: 0.0005
+  CENTER_LR: 0.5
+  CHECKPOINT_PERIOD: 120
+  COSINE_MARGIN: 0.5
+  COSINE_SCALE: 30
+  EVAL_PERIOD: 120
+  GAMMA: 0.1
+  IMS_PER_BATCH: 64
+  LARGE_FC_LR: False
+  LOG_PERIOD: 50
+  MARGIN: 0.3
+  MAX_EPOCHS: 120
+  MOMENTUM: 0.9
+  OPTIMIZER_NAME: SGD
+  SEED: 1234
+  STEPS: (40, 70)
+  WARMUP_EPOCHS: 5
+  WARMUP_FACTOR: 0.01
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 0.0001
+  WEIGHT_DECAY_BIAS: 0.0001
+TEST:
+  DIST_MAT: dist_mat.npy
+  EVAL: True
+  FEAT_NORM: yes
+  IMS_PER_BATCH: 256
+  IPG: True
+  NECK_FEAT: before
+  NFC: True
+  POSE_DIR: /root/autodl-tmp/POSE2ID-optimized/IPG/standard_poses
+  PQ_IPG: False
+  RE_RANKING: False
+  WEIGHT: /root/autodl-tmp/Pose2ID/pretrained/transformer_20.pth
+=> Market1501 loaded
+Dataset statistics:
+  ----------------------------------------
+  subset   | # ids | # images | # cameras
+  ----------------------------------------
+  train    |   751 |    12936 |         6
+  query    |   750 |     3368 |         6
+  gallery  |   751 |    15913 |         6
+  ----------------------------------------
+using Transformer_type: vit_base_patch16_224_TransReID as a backbone
+using stride: [12, 12], and patch number is num_y21 * num_x10
+camera number is : 6
+using SIE_Lambda is : 3.0
+using drop_out rate is : 0.0
+using attn_drop_out rate is : 0.0
+using drop_path rate is : 0.1
+Resized position embedding from size:torch.Size([1, 197, 768]) to size: torch.Size([1, 211, 768]) with height:21 width: 10
+Loading pretrained ImageNet model......from /root/.cache/torch/checkpoints/jx_vit_base_p16_224-80ecf9dd.pth
+using shuffle_groups size:2
+using shift_num size:5
+using divide_length size:4
+===========building transformer with JPM module ===========
+Loading pretrained model from /root/autodl-tmp/Pose2ID/pretrained/transformer_20.pth
+2026-06-16 14:58:21,041 transreid.test INFO: Enter inferencing
+The test feature is normalized
+/root/autodl-tmp/POSE2ID-optimized/demo/TransReID-main/utils/NFC.py:11: UserWarning: This overload of addmm_ is deprecated:
+        addmm_(Number beta, Number alpha, Tensor mat1, Tensor mat2)
+Consider using one of the following signatures instead:
+        addmm_(Tensor mat1, Tensor mat2, *, Number beta, Number alpha) (Triggered internally at ../torch/csrc/utils/python_arg_parser.cpp:1519.)
+  dist.addmm_(1, -2, x, y.t())
+=> Computing DistMat with euclidean_distance
+2026-06-16 15:02:50,438 transreid.test INFO: Validation Results 
+2026-06-16 15:02:50,438 transreid.test INFO: mAP: 90.40%
+2026-06-16 15:02:50,438 transreid.test INFO: CMC curve, Rank-1  :94.77%
+2026-06-16 15:02:50,438 transreid.test INFO: CMC curve, Rank-5  :97.06%
+2026-06-16 15:02:50,438 transreid.test INFO: CMC curve, Rank-10 :98.16%

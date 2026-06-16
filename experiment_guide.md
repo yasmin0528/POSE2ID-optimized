@@ -123,10 +123,11 @@ python test.py \
 
 ### 3.3 结果记录
 
-| Method | Rank-1 | mAP | 说明 |
-|--------|--------|-----|------|
-| Pose2ID (复现) | 94.86%| 90.40%| 你的复现结果 |
-| Pose2ID + PQ-IPG |94.80% | 90.37%| 本创新点 |
+| Method           | Rank-1 (%) | Rank-5 (%) | Rank-10 (%) | mAP (%) | ΔmAP  |
+| ---------------- | ---------- | ---------- | ----------- | ------- | ----- |
+| Pose2ID Baseline | 94.77      | 97.06      | 98.16       | 90.40   | -     |
+| Pose2ID + PQ-IPG | 94.80      | 97.12      | 98.19       | 90.37   | -0.03 |
+
 
 ---
 
@@ -156,12 +157,13 @@ python test.py \
 
 ### 结果记录表
 
-| Weight Strategy | Rank-1 | mAP | Delta mAP |
-|----------------|--------|-----|-----------|
-| Equal Weight (baseline) | | | - |
-| Density Only | | | |
-| Symmetry Only | | | |
-| PQ-IPG (full) | | | |
+| Weight Strategy                               | Rank-1 (%) | mAP (%) | ΔmAP  |
+| --------------------------------------------- | ---------- | ------- | ----- |
+| Equal Weight (Baseline)                       | 94.77      | 90.40   | -     |
+| Density + Confidence Only (α=0.7, β=0.3, γ=0) | 94.89      | 90.39   | -0.01 |
+| Symmetry Only (α=0, β=0, γ=1)                 | 94.77      | 90.32   | -0.08 |
+| PQ-IPG (Full)                                 | 94.80      | 90.37   | -0.03 |
+
 
 ---
 

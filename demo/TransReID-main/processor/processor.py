@@ -191,26 +191,27 @@ def do_inference(cfg,
             feat = model(img, cam_label=camids, view_label=target_view)
             if cfg.TEST.IPG:
                 # Extract features for all generated pose variants
-                gen_feats = []
-                for img_ipg in imgs_ipg:
-                    gen_feats.append(model(img_ipg.to(device), cam_label=camids, view_label=target_view))
-                gen_feats = torch.stack(gen_feats, dim=0)  # [N, D]
+                # Each img_ipg in imgs_ipg is [B, C, H, W]; stacked = [N_pose, B, D]
+                gen_feats = torch.stack([
+                    model(img_ipg.to(device), cam_label=camids, view_label=target_view)
+                    for img_ipg in imgs_ipg
+                ], dim=0)  # [N_pose, B, D]
 
                 if cfg.TEST.ISAF:
-                    # ISAF: weight by cosine similarity with query feature
+                    # ISAF: per-sample weighted fusion by cosine similarity
                     isaf_tau = cfg.TEST.ISAF_TAU
-                    feat_n = F.normalize(feat, dim=1)       # [D]
-                    gen_feats_n = F.normalize(gen_feats, dim=1)  # [N, D]
-                    sim = (gen_feats_n @ feat_n.T).squeeze(1)    # [N]
-                    weights = torch.softmax(sim / isaf_tau, dim=0)
-                    feat_ipg = (weights.unsqueeze(1) * gen_feats).sum(0)
-                    logger.debug(f"ISAF weights: {weights.cpu().tolist()}")
+                    feat_n = F.normalize(feat, dim=1)            # [B, D]
+                    gen_feats_n = F.normalize(gen_feats, dim=2)  # [N, B, D]
+                    sim = torch.einsum('nbd,bd->nb', gen_feats_n, feat_n)  # [N, B]
+                    weights = torch.softmax(sim / isaf_tau, dim=0)        # [N, B]
+                    feat_ipg = (weights.unsqueeze(2) * gen_feats).sum(0)  # [B, D]
                 elif pq_ipg_weights is not None and len(imgs_ipg) == len(pq_ipg_weights):
-                    # PQ-IPG: weighted fusion
-                    feat_ipg = (pq_ipg_weights.unsqueeze(1) * gen_feats).sum(0)
+                    # PQ-IPG: pre-computed static weights
+                    # pq_ipg_weights: [N], gen_feats: [N, B, D]
+                    feat_ipg = (pq_ipg_weights.unsqueeze(1).unsqueeze(2) * gen_feats).sum(0)  # [B, D]
                 else:
                     # Standard IPG: equal-weight averaging
-                    feat_ipg = gen_feats.mean(0)
+                    feat_ipg = gen_feats.mean(0)  # [B, D]
                 evaluator.update((feat, pid, camid, feat_ipg))
             else:
                 evaluator.update((feat, pid, camid, feat))
