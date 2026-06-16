@@ -189,6 +189,10 @@ _C.TEST.PQ_BETA = 0.3
 _C.TEST.PQ_GAMMA = 0.3
 # PQ-IPG: softmax temperature (lower = sharper weights)
 _C.TEST.PQ_TEMPERATURE = 0.5
+# If test with ISAF (Identity Similarity-Aware Fusion), options: 'True','False'
+_C.TEST.ISAF = False
+# ISAF: softmax temperature for similarity-to-weight conversion
+_C.TEST.ISAF_TAU = 0.07
 # Which feature of BNNeck to be used for test, before or after BNNneck, options: 'before' or 'after'
 _C.TEST.NECK_FEAT = 'after'
 # Whether feature is nomalized before test, if yes, it is equivalent to cosine distance

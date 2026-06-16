@@ -10,6 +10,7 @@ from torch.cuda import amp
 import torch.distributed as dist
 import numpy as np
 from PIL import Image
+import torch.nn.functional as F
 
 def do_train(cfg,
              model,
@@ -189,18 +190,27 @@ def do_inference(cfg,
             camids = torch.zeros_like(camids)
             feat = model(img, cam_label=camids, view_label=target_view)
             if cfg.TEST.IPG:
-                if pq_ipg_weights is not None and len(imgs_ipg) == len(pq_ipg_weights):
+                # Extract features for all generated pose variants
+                gen_feats = []
+                for img_ipg in imgs_ipg:
+                    gen_feats.append(model(img_ipg.to(device), cam_label=camids, view_label=target_view))
+                gen_feats = torch.stack(gen_feats, dim=0)  # [N, D]
+
+                if cfg.TEST.ISAF:
+                    # ISAF: weight by cosine similarity with query feature
+                    isaf_tau = cfg.TEST.ISAF_TAU
+                    feat_n = F.normalize(feat, dim=1)       # [D]
+                    gen_feats_n = F.normalize(gen_feats, dim=1)  # [N, D]
+                    sim = (gen_feats_n @ feat_n.T).squeeze(1)    # [N]
+                    weights = torch.softmax(sim / isaf_tau, dim=0)
+                    feat_ipg = (weights.unsqueeze(1) * gen_feats).sum(0)
+                    logger.debug(f"ISAF weights: {weights.cpu().tolist()}")
+                elif pq_ipg_weights is not None and len(imgs_ipg) == len(pq_ipg_weights):
                     # PQ-IPG: weighted fusion
-                    feat_ipg = torch.zeros(feat.size()).to(device)
-                    for i, img_ipg in enumerate(imgs_ipg):
-                        feat_i = model(img_ipg.to(device), cam_label=camids, view_label=target_view)
-                        feat_ipg += pq_ipg_weights[i] * feat_i
+                    feat_ipg = (pq_ipg_weights.unsqueeze(1) * gen_feats).sum(0)
                 else:
                     # Standard IPG: equal-weight averaging
-                    feat_ipg = torch.zeros(feat.size()).to(device)
-                    for img_ipg in imgs_ipg:
-                        feat_ipg += model(img_ipg.to(device), cam_label=camids, view_label=target_view)
-                    feat_ipg = feat_ipg / len(imgs_ipg)
+                    feat_ipg = gen_feats.mean(0)
                 evaluator.update((feat, pid, camid, feat_ipg))
             else:
                 evaluator.update((feat, pid, camid, feat))
