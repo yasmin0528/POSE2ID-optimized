@@ -189,10 +189,20 @@ _C.TEST.PQ_BETA = 0.3
 _C.TEST.PQ_GAMMA = 0.3
 # PQ-IPG: softmax temperature (lower = sharper weights)
 _C.TEST.PQ_TEMPERATURE = 0.5
+# PQ-IPG/ISAF: keep only top-k pose priors. 0 disables filtering.
+_C.TEST.PQ_TOPK = 0
 # If test with ISAF (Identity Similarity-Aware Fusion), options: 'True','False'
 _C.TEST.ISAF = False
 # ISAF: softmax temperature for similarity-to-weight conversion
 _C.TEST.ISAF_TAU = 0.07
+# If True, blend PQ-IPG pose prior into ISAF dynamic weights
+_C.TEST.ISAF_USE_PQ = False
+# Convex blend ratio between ISAF weights and PQ prior, in [0, 1]
+_C.TEST.ISAF_PQ_BLEND = 0.3
+# Final fusion coefficient for original feature + eta * IPG feature
+_C.TEST.IPG_FUSION_ETA = 2.0
+# If True, L2-normalize original/IPG branches before final fusion
+_C.TEST.IPG_BRANCH_NORM = False
 # Which feature of BNNeck to be used for test, before or after BNNneck, options: 'before' or 'after'
 _C.TEST.NECK_FEAT = 'after'
 # Whether feature is nomalized before test, if yes, it is equivalent to cosine distance

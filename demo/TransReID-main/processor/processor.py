@@ -145,7 +145,14 @@ def do_inference(cfg,
     logger = logging.getLogger("transreid.test")
     logger.info("Enter inferencing")
 
-    evaluator = R1_mAP_eval(num_query, max_rank=50, feat_norm=cfg.TEST.FEAT_NORM, nfc=cfg.TEST.NFC)
+    evaluator = R1_mAP_eval(
+        num_query,
+        max_rank=50,
+        feat_norm=cfg.TEST.FEAT_NORM,
+        nfc=cfg.TEST.NFC,
+        ipg_fusion_eta=cfg.TEST.IPG_FUSION_ETA,
+        ipg_branch_norm=cfg.TEST.IPG_BRANCH_NORM,
+    )
 
     evaluator.reset()
 
@@ -158,9 +165,15 @@ def do_inference(cfg,
     model.eval()
     img_path_list = []
 
-    # Precompute PQ-IPG weights if IPG is enabled
+    # Precompute PQ-IPG weights if any IPG fusion branch depends on pose priors
     pq_ipg_weights = None
-    if cfg.TEST.IPG and cfg.TEST.PQ_IPG:
+    pq_topk_indices = None
+    need_pq_prior = cfg.TEST.IPG and (
+        cfg.TEST.PQ_IPG
+        or cfg.TEST.PQ_TOPK > 0
+        or (cfg.TEST.ISAF and cfg.TEST.ISAF_USE_PQ)
+    )
+    if need_pq_prior:
         pose_dir = cfg.TEST.POSE_DIR
         pq_alpha = cfg.TEST.PQ_ALPHA
         pq_beta = cfg.TEST.PQ_BETA
@@ -176,7 +189,17 @@ def do_inference(cfg,
                     q = compute_pose_quality_from_image(pose_img, alpha=pq_alpha, beta=pq_beta, gamma=pq_gamma)
                     qualities.append(q)
                 pq_ipg_weights = compute_pq_ipg_weights(qualities, temperature=pq_temperature).to(device)
-                logger.info(f"PQ-IPG enabled. Pre-computed weights: {pq_ipg_weights.cpu().tolist()}")
+                logger.info(f"PQ-IPG prior weights: {pq_ipg_weights.cpu().tolist()}")
+                if cfg.TEST.PQ_TOPK > 0:
+                    topk = min(int(cfg.TEST.PQ_TOPK), len(pq_ipg_weights))
+                    if topk < len(pq_ipg_weights):
+                        pq_topk_weights, pq_topk_indices = torch.topk(pq_ipg_weights, k=topk, dim=0)
+                        pq_topk_weights = pq_topk_weights / pq_topk_weights.sum()
+                        logger.info(
+                            f"PQ top-k filtering enabled. Keep poses "
+                            f"{[int(i) + 1 for i in pq_topk_indices.cpu().tolist()]} "
+                            f"with normalized prior {pq_topk_weights.cpu().tolist()}"
+                        )
             else:
                 logger.warning(f"PQ-IPG: No pose images found in {pose_dir}. Falling back to equal weights.")
         else:
@@ -197,21 +220,35 @@ def do_inference(cfg,
                     for img_ipg in imgs_ipg
                 ], dim=0)  # [N_pose, B, D]
 
+                selected_gen_feats = gen_feats
+                selected_pq_weights = pq_ipg_weights
+                if pq_topk_indices is not None:
+                    selected_gen_feats = gen_feats.index_select(0, pq_topk_indices)
+                    selected_pq_weights = pq_ipg_weights.index_select(0, pq_topk_indices)
+                    selected_pq_weights = selected_pq_weights / selected_pq_weights.sum()
+
                 if cfg.TEST.ISAF:
                     # ISAF: per-sample weighted fusion by cosine similarity
                     isaf_tau = cfg.TEST.ISAF_TAU
                     feat_n = F.normalize(feat, dim=1)            # [B, D]
-                    gen_feats_n = F.normalize(gen_feats, dim=2)  # [N, B, D]
+                    gen_feats_n = F.normalize(selected_gen_feats, dim=2)  # [N, B, D]
                     sim = torch.einsum('nbd,bd->nb', gen_feats_n, feat_n)  # [N, B]
                     weights = torch.softmax(sim / isaf_tau, dim=0)        # [N, B]
-                    feat_ipg = (weights.unsqueeze(2) * gen_feats).sum(0)  # [B, D]
-                elif pq_ipg_weights is not None and len(imgs_ipg) == len(pq_ipg_weights):
+                    if (
+                        cfg.TEST.ISAF_USE_PQ
+                        and selected_pq_weights is not None
+                        and len(selected_gen_feats) == len(selected_pq_weights)
+                    ):
+                        blend = max(0.0, min(1.0, float(cfg.TEST.ISAF_PQ_BLEND)))
+                        weights = (1.0 - blend) * weights + blend * selected_pq_weights.unsqueeze(1)
+                        weights = weights / weights.sum(dim=0, keepdim=True)
+                    feat_ipg = (weights.unsqueeze(2) * selected_gen_feats).sum(0)  # [B, D]
+                elif selected_pq_weights is not None and len(selected_gen_feats) == len(selected_pq_weights) and cfg.TEST.PQ_IPG:
                     # PQ-IPG: pre-computed static weights
-                    # pq_ipg_weights: [N], gen_feats: [N, B, D]
-                    feat_ipg = (pq_ipg_weights.unsqueeze(1).unsqueeze(2) * gen_feats).sum(0)  # [B, D]
+                    feat_ipg = (selected_pq_weights.unsqueeze(1).unsqueeze(2) * selected_gen_feats).sum(0)  # [B, D]
                 else:
-                    # Standard IPG: equal-weight averaging
-                    feat_ipg = gen_feats.mean(0)  # [B, D]
+                    # Standard IPG or filtered mean pooling
+                    feat_ipg = selected_gen_feats.mean(0)  # [B, D]
                 evaluator.update((feat, pid, camid, feat_ipg))
             else:
                 evaluator.update((feat, pid, camid, feat))

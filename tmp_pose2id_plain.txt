@@ -1,0 +1,1792 @@
+arXiv:2503.00938v2 [cs.CV] 11 Mar 2025
+
+From Poses to Identity: Training-Free Person Re-Identification
+via Feature Centralization
+Chao Yuan1,∗ , Guiwei Zhang1,∗ , Changxiao Ma1 , Tianyi Zhang2 , Guanglin Niu2,†
+1
+School of Computer Science and Engineering, Beihang University
+2
+School of Artificial Intelligence, Beihang University
+yuanc3666@gmail.com, {zhangguiwei,cxma124,zy2442222,beihangngl}@buaa.edu.cn
+
+Market1501
+
+SYSU-MM01
+
+Occluded-ReID
+
+Figure 1. Visualization of our Identity-Guided Pedestrian Generation model with 8 representative poses on three datasets.
+
+Abstract
+Person re-identification (ReID) aims to extract accurate
+identity representation features. However, during feature extraction, individual samples are inevitably affected
+by noise (background, occlusions, and model limitations).
+Considering that features from the same identity follow a
+normal distribution around identity centers after training,
+we propose a Training-Free Feature Centralization ReID
+framework (Pose2ID) by aggregating the same identity features to reduce individual noise and enhance the stability of
+identity representation, which preserves the feature’s original distribution for following strategies such as re-ranking.
+Specifically, to obtain samples of the same identity, we introduce two components: ➀Identity-Guided Pedestrian Generation: by leveraging identity features to guide the generation process, we obtain high-quality images with diverse
+poses, ensuring identity consistency even in complex scenarios such as infrared, and occlusion. ➁Neighbor Feature
+Centralization: it explores each sample’s potential posi† Corresponding author. * Equal contribution.
+Codes: https://github.com/yuanc3/Pose2ID
+
+tive samples from its neighborhood. Experiments demonstrate that our generative model exhibits strong generalization capabilities and maintains high identity consistency.
+With the Feature Centralization framework, we achieve impressive performance even with an ImageNet pre-trained
+model without ReID training, reaching mAP/Rank-1 of
+52.81/78.92 on Market1501. Moreover, our method sets
+new state-of-the-art results across standard, cross-modality,
+and occluded ReID tasks, showcasing strong adaptability.
+
+1. Introduction
+Person re-identification (ReID) is a critical task in video
+surveillance and security, aiming to match pedestrian images captured from different cameras. Despite significant
+progress made in recent years through designing more complex models with increased parameters and feature dimensions, inevitable noise arises due to poor image quality or
+inherent limitations of the models, reducing the accuracy of
+identity recognition and affecting retrieval performance.
+To address this challenge, we propose a training-free
+
+ReID framework that fully leverages capabilities of existing
+models by mitigating feature noise to enhance identity representation. During training, features of the same identity
+are constrained by the loss function and naturally aggregate
+around an ”identity center” in the feature space. Particularly, according to the central limit theorem, when the number of samples is sufficiently large, these features would follow a normal distribution with identity center as the mean.
+As shown in Fig. 2, we visualize the feature distribution of
+an identity, and rank samples of the same identity with distance to their identity center. Therefore, we introduce the
+concept of feature centralization. To make each sample’s
+feature more representative of its identity, by aggregating
+features of the same identity, we can reduce the noise in
+individual samples, strengthen identity characteristics, and
+bring each feature dimension closer to its central value.
+However, obtaining diverse samples of the same identity is hard without identity labels. With the development of generative models, generating images of the same
+identity in different poses has become feasible. Previous
+GAN-based studies [13, 43, 72, 73] struggle with limited
+effectiveness, and mainly serve to augment training data.
+With breakthroughs in diffusion models for image generation [2, 19, 66], it is now possible to generate high-quality,
+multi-pose images of the same person. However, these
+methods lack effective control over identity features and
+generated pedestrian images are susceptible to interference
+from background or occlusions, making it difficult to ensure identity consistency across poses. Therefore, we utilize identity features of ReID, proposing an Identity-Guided
+Pedestrian Generation paradigm. Guided by identity features, we generate high-quality images of the same person
+with a high degree of identity consistency across diverse
+scenarios (visible, infrared, and occluded).
+Furthermore, inspired by re-ranking mechanisms[74],
+we explore potential positive samples through feature distance matrices to further achieve feature centralization. Unlike traditional re-ranking methods that modify features
+or distances in a one-off manner, our approach performs
+L2 normalization after enhancement. This preserves the
+original feature distribution while improving representation
+quality and can be combined with re-ranking methods.
+Thus, the main contributions of this paper include:
+• Training-Free Feature Centralization framework that
+can be directly applied to different ReID tasks/models,
+even an ImageNet pretrained ViT without ReID training;
+• Identity-Guided Pedestrian Generation (IPG) paradigm,
+leveraging identity features to generate high-quality images of the same identity in different poses to achieve feature centralization;
+• Neighbor Feature Centralization (NFC) based on sample’s neighborhood, discovering hidden positive samples
+from gallery/query set to achieve feature centralization.
+
+Rank with distances to identity center
+
+Figure 2. The real feature distribution of images from the same ID
+extracted by TransReID, and the main idea of our work is to make
+features closer/centralized to the ID center.
+
+2. Related works
+Person Re-Identification Person re-identification (ReID)
+is a critical task in computer vision that focuses on identifying individuals across different camera views. It plays
+a significant role in surveillance and security applications.
+Recent advancements in ReID have leveraged deep learning
+techniques to enhance performance, particularly using convolutional neural networks (CNNs[29]) and vision transformers (ViTs [2]). The deep learning based methods[3, 11,
+17, 30, 35, 48, 64, 65] that focus on feature extraction and
+metric learning[18, 28, 34, 62] have improved feature extraction by learning robust and discriminative embeddings
+that capture identity-specific information.
+Standard datasets like Market-1501 [70] have been
+widely used to benchmark ReID algorithms under normal
+conditions. Moreover, there are some challenging scenarios
+such as occlusions and cross-modality matching. OccludedREID [78] addresses the difficulties of identifying partially
+obscured individuals, while SYSU-MM01 [55] focuses on
+matching identities between visible and infrared images,
+crucial for nighttime surveillance.
+Feature Enhancement in Re-Identification Extracting
+robust feature representations is one of the key challenges in
+re-identification. Feature enhancement could help the ReID
+model easily differentiate between two people. Data augmentation techniques[40, 41, 76] were enhanced for feature enhancement. By increasing the diversity of training
+data, ReID model could extract robust and discriminative
+features.
+Apart from improving the quality of the generated images, some Gan-based methods couple feature extraction
+and data generation end-to-end to distill identity related feature. FD-GAN[13] separates identity from the pose by generating images across multiple poses, enhancing the ReID
+
+system’s robustness to pose changes. Zheng et al.[73] separately encodes each person into an appearance code and
+a structure code. Eom el al.[8] propose to disentangle
+identity-related and identity-unrelated features from person
+images. However, GAN-based methods face challenges
+such as training instability and mode collapse, which may
+not keep identity consistency.
+In addition, the re-ranking technique refines featurebased distances to improve ReID accuracy. Such as kReciprocal Encoding Re-ranking[74], which improves retrieval accuracy by leveraging the mutual neighbors between images to refine the distance metric.
+Person Generation Models Recent approaches have incorporated generative models, particularly generative adversarial networks (GANs) [14], to augment ReID data
+or enhance feature quality. Style transfer GAN-based
+methods[7, 21, 42, 75] transfer labeled training images to
+artificially generated images in diffrent camera domains,
+background domains or RGB-infrared domains. Posetransfer GAN-based methods[5, 36, 43, 45, 63] enable the
+synthesis of person images with variations in pose and appearance, enriching the dataset and making feature representations more robust to changes in poses. Random generation GAN-based mothods [1, 23, 72] generate random
+images of persons and use Label Smooth Regularization
+(LSR [50]) or other methods to automatically label them.
+However, these methods often struggle to maintain identity
+consistency in pose variation, as generated images are susceptible to identity drift. The emergence of diffusion models has advanced the field of generative modeling, showing
+remarkable results in image generation tasks [19]. Leveraging the capabilities of pre-trained models like Stable Diffusion [44], researchers have developed techniques[4, 66] to
+generate high-quality human images conditioned on 2D human poses. Such as ControlNet[66], which integrates conditional control into diffusion models, allowing precise manipulation of generated images based on pose inputs.
+
+3. Methods
+The main purpose of this paper is to centralize features to
+their identity center to enhance the identity representation
+of feature vectors extracted by ReID model, that is, reducing noise within the features while increasing the identity
+attributes to make them more representative of their identities. Therefore, to effectively and reasonably enhance the
+features, we need to understand the characteristics of the
+feature vectors obtained by ReID model.
+
+3.1. Feature Distribution Analysis
+Currently, ReID models commonly use cross-entropy loss
+to impose ID-level constraints, and contrastive losses (such
+
+as triplet loss) to bring features of the same ID closer while
+pushing apart features of different IDs. Some models also
+utilize center loss to construct identity centers for dynamically constraining the IDs. These methods lead to one common result: feature aggregation. One can say that the current ReID task is essentially a feature aggregation task. The
+degree of feature density (e.g. t-SNE visualization) is also
+widely used to measure model performance. It is easy to
+deduce that the features of the same ID are centered around
+a ”mean,” approximately forming a normal distribution, as
+the distribution shown in Fig.2 which is visualized with one
+single feature dimension of the same ID.
+It is evident that ReID features are normally distributed
+around the ‘identity center’. To theoretically prove that the
+feature vectors of each ID in current ReID tasks aggregation around a center or mean, we analyze several commonly
+used loss functions and their impact on the feature distribution in Supplementary.
+For the same identity yi = j, we have a large number
+Nj
+of samples {xi }i=1
+, where Nj is the number of samples for
+ID j. These samples are passed through a ReID model f (·),
+Nj
+resulting in the corresponding feature vectors {fi }i=1
+:
+fi = f (xi )
+
+(1)
+
+where fi ∈ Rd is the feature vector of sample xi , and d is
+the dimensionality of the feature space.
+For each feature dimension k of the feature vector fi ,
+Nj
+the values {fi,k }i=1
+obtained from different samples of the
+same ID j is independent and identically distributed random
+variables. Here, fi,k represents the k-th dimension of the
+feature vector for the i-th sample.
+Nj
+Since the input samples {xi }i=1
+are independent, the
+values of fi,k are independent factors. According to the
+Central Limit Theorem (CLT), when the number of independent factors is large, the distribution of the values
+Nj
+{fi,k }i=1
+for any dimension k of the feature vector will
+approximate a normal distribution. Thus, for each feature
+dimension k, we have:
+fi,k ∼ N (µk , σk2 )
+
+(2)
+
+where µk is the mean of the k-th feature dimension for ID
+fj, and σk2 is the variance of feature values in this dimension.
+Since each dimension fi,k of the feature vector approximately follows a normal distribution across samples, the
+entire feature vector fi for ID j can be approximated by a
+multivariate normal distribution. This gives:
+fi ∼ N (µ, Σ)
+⊤
+
+(3)
+
+where µ = (µ1 , µ2 , . . . , µd ) is the mean vector of the
+feature dimensions, and Σ is the covariance matrix.
+The theoretical analysis above suggests that under the
+optimization of the loss functions, the ReID model’s feature vectors xi aggregated around their identity centers cyi
+
+Add
+
+Original
+Feature
+5
+
+6
+
+Original
+
++
+
+3
+
+7
+8
+
+Same ID Set
+Ref.
+
+1
+
+L2 Norm
+
+Representative
+Poses
+4
+
+Generate
+Images
+
+Identity-Guided
+Pedestrian Generation
+
+Fused Feature
+
+Neighbor Feature
+Centralization (NFC)
+
+Identity-Guided Pedestrian Generation (IPG)
+
+Trg.
+VAE
+Encoder
+
+noise
+
++
+
+Inference Only
+Training Only
+Shared
+loss
+
+Pose
+Detector
+ReID
+Model
+
+Centralized Feature
+
+NFC
+
+2
+
+Pose
+Encoder
+
+VAE
+Decoder
+
+Denoise Net
+K, V
+
+Trg. Pose
+…
+
+…
+
+Identity
+Feature
+Redistribute
+
+Feature Embedding
+
+T
+iterations
+
+Generate
+Image
+
++
+
+=
+Enhanced
+Feature i
+
+Feature i
+
+Feature j
+
+Figure 3. Overview of the proposed Feature Centralization framework for the ReID task.
+
+following a normal distribution. This is consistent with the
+feature aggregation observed in t-SNE visualizations.
+
+Identity Density (ID2 ) Metric Identity density is one aspect of measuring ReID effectiveness. However, there is
+currently no quantitative metric for this, and researchers
+commonly rely on visualization tools like t-SNE to demonstrate model performance. By using the concept above, we
+propose an Identity Density (ID2 ) Metric which is detailed
+in Supplementary.
+
+3.2. Feature Centralization via Identity-Guided
+Pedestrian Generation
+3.2.1. Feature Centralization
+Since features of the same identity follow a multivariate
+normal distribution, we can simply aggregate features of
+the same identity to approximate the identity center, as
+the visualization in Fig.2. Thus, our main purpose becomes
+how to get more samples of the same identity to help centralize features.
+A straightforward approach is to perform horizontal flipping on the original images, and add features together. It
+is worth noting for reviewers that this is a very simple but
+effective trick. Therefore, it is necessary to check whether
+performance improvements are due to such tricks. In our
+experiments, to demonstrate the advancement of our approach, we did not use this trick. If used, it may be better.
+
+3.2.2. Identity-Guided Diffusion Process
+To get more samples from the same identity, we propose a novel Identity-Guided Pedestrian Generation (IPG)
+paradigm, generating images of the same identity with different poses using a Stable Diffusion model guided by identity feature to centralize each sample’s features.
+Followed by Stable Diffusion [44], which is developed
+from latent diffusion model (LDM). We use the reference
+UNet to inject the reference image features into the diffusion process with a constant timestep t = 0, and the denoising UNet ϵθ to generate the target image latent z0 by
+denoising the noisy latent zT = ϵ:
+zt−1 = ϵθ (zt , t, Epose , H), t ∈ [0, T ]
+
+(4)
+
+where H is the identity feature information to guide model
+keep person identity. Epose is the pose features.
+At each timestep t, the pose feature Epose and conditioning embedding H guide the denoising process.
+Identity Feature Redistribute (IFR) The Identity Feature
+Redistribute (IFR) module aims to utilize identity features
+from input images, removing noise to better guide the generative model. It converts high-dimensional identity features into meaningful low-dimensional feature blocks, enhancing the model’s feature utilization efficiency.
+Given the input sample x ∈ RC by a ReID model f (·),
+with IFR, we can obtain a re-distributed robust feature H ∈
+RN ×D ) :
+H = IFR(f (x)) = LN(Linear(f ))
+
+(5)
+
+For this more robust feature identity feature, it is used
+as the K, V of the model’s attention module to guide the
+model’s attention to the identity feature.
+Pose Encoder The Pose Encoder is to extract highdimensional pose embeddings Epose from input poses. It
+has 4 blocks with 16,32,64,128 channels. Each block applies a normal 3 × 3 Conv, a 3 × 3 Conv with stride 2 to
+reduce spatial dimensions, and followed by a SiLU activate
+function. Subsequently, the pose features are added to the
+noise latent before into the denoising UNet, follows [20].
+Training Strategy For each identity i, we randomly select
+one image from Siref as the reference image and one image
+from Sitrg as the target image for training.
+ref
+Let xref
+i,j ∈ Si denote the reference image (i.e. jth imtrg
+age of the ith ID) and xtrg
+i,j ∈ Si denote the target image.
+Model is trained using the mean squared error (MSE) loss
+between the predicted noise and the true noise.
+h
+i
+2
+L = Ez,t,ϵ ∥ϵ − ϵ)θ(zt , t, Epose , H)∥
+(6)
+where z = VAE(xtrg
+i,j ) + ϵ is a latent obtained by a pretrained VAE encoder[26], Epose is the pose feature of xtrg
+i,j ),
+ref
+H is the re-distributed identity feature of (xi,j )).
+The model is trained to learn the mapping from the reference image xref to the target image xtrg , with the goal
+of generating realistic variations in pose while preserving
+identity feature. This random selection ensures diversity
+during training, as different combinations of reference and
+target images are used in each training iteration, enhancing
+the model’s ability to generalize across various poses and
+viewpoints.
+3.2.3. Selection of Representative Pose
+In ReID tasks, features extracted from different poses of the
+same identity can vary significantly. Some specific poses
+tend to be more representative of that identity. As the conclusion of feature distribution in section3.1, we calculate
+the identity center for IDs with all of its samples in datasets,
+and select the image whose feature is the closest to the center. The pose of this image is regarded as the representative
+pose. By randomly selecting 8 representative poses with
+different directions, we generate images that are more representative of the person’s identity.
+That is, given a set of feature vectors Fall =
+{f1 , f2 , . . . , fN } for a particular identity:
+N
+
+1 X
+fi
+fmean =
+N i=1
+
+(7)
+
+pose = arg min d(fmean , fi )
+
+(8)
+
+i
+
+3.2.4. Feature Centralization Enhancement
+Once we got generated images with different poses, we generate new images x̂ for each of these poses. The features
+
+extracted from these generated images are then aggregated
+with the original reference feature to enhance the overall
+representation. The centralized feature f̃ is computed as:
+M
+
+f̃ = ∥f +
+
+η X
+fi ∥2
+M i=1
+
+(9)
+
+where f is the feature of the original reference image, and
+fi are the features extracted from the M generated images.
+The coefficient η is introduced to adjust based on the quality
+of generated images. According to the theory of Section3.1,
+low-quality generated images, as long as they contain corresponding identity information, can also be applied with feature enhancement, and use η to regulate the enhancement
+effect of generated information. As discussed in [72], even
+if quality is poor, it still contains ID information.
+
+3.3. Neighbor Feature Centralization (NFC)
+Moreover, we proposed a Neighbor Feature Centralization (NFC) algorithm to reduce noise in individual features
+and improve their identity discriminability in unlabeled scenarios. The core idea of the algorithm is to utilize mutual
+nearest-neighbor features for aggregation.
+Algorithm 1 Neighbor Feature Centralization (NFC)
+Require: Feature vectors {zi }N
+i=1 , parameters k1 , k2
+Ensure: Centralized feature vectors {zcentralized
+}N
+i=1
+i
+1: Compute pairwise distance matrix D = [dij ]
+2: for i = 1 to N do
+3:
+Set dii = C
+▷ Avoid self-matching
+4: end for
+5: for i = 1 to N do
+6:
+Ni ← indices of top k1 neighbors of zi
+7: end for
+8: for i = 1 to N do
+9:
+Mi ← ∅
+10:
+for each j ∈ Ni do
+11:
+Njk2 ← indices of top k2 neighbors of zj
+12:
+if i ∈ Njk2 then
+13:
+Mi ← Mi ∪ {j}
+14:
+end if
+15:
+end for
+16: end for
+17: for i = 1 to N do
+P
+18:
+zcentralized
+← zi + j∈Mi zj
+i
+19: end for
+By enhancing each feature with its potential neighbors, it
+could effectively approximate features of the same identity
+without explicit labels, and ensure that only features have
+high similarity relationships contribute to the enhancement.
+
+Dataset
+
+Model
+
+Venue
+
+Base
+
+Method
+mAP↑
+official
+79.88
+TransReID[16](w/o camid)
++ours 90.39(+10.51)
+ICCV21 ViT
+official
+89
+TransReID[16](w/ camid)
++ours
+93.01(+4.01)
+Market1501
+official
+89.7
+ViT
++ours
+94(+4.3)
+CLIP-ReID[31]
+AAAI23
+official
+89.8
+CNN
++ours
+94.9(+5.1)
+official
+79.05
+KPR[47]
+ECCV24 ViT
++ours 89.34(+10.29)
+Occluded-ReID
+official
+70.41
+BPBReID[46]
+WACV23 ViT
++ours 86.05(+15.64)
+official
+71.81
+All
++ours
+76.44(+4.63)
+SAAI[9]
+ICCV23 CNN
+official
+84.6
+Indoor
++ours
+86.83(+2.23)
+SYSU-MM01
+official
+66.13
+All
++ours
+75.43(+9.3)
+PMT[38]
+AAAI23 ViT
+official
+77.81
+Indoor
++ours
+84.29(+6.48)
+
+Rank-1↑
+91.48
+94.74(+3.26)
+95.1
+95.52(+0.42)
+95.4
+96.4(+1.0)
+95.7
+97.3(+1.6)
+85.4
+91(+5.6)
+77.2
+89.1(+11.9)
+75.29
+79.33(+4.04)
+81.59
+84.2(+2.61)
+67.7
+74.81(+7.11)
+72.95
+80.29(+7.34)
+
+ID2 ↓
+0.2193
+0.1357
+0.2759
+0.1967
+0.0993
+0.0624
+0.0877
+0.053
+0.3124
+0.1434
+0.377
+0.1504
+0.4817
+0.4072
+0.4424
+0.3694
+0.4308
+0.3133
+0.4046
+0.2995
+
+Table 1. Improvements with our method on different SOTA models with both ViT and CNN backbone on Market1501, SYSU-MM01, and
+Occluded-ReID datasets. The data under grey is the new SOTA with our methods of that dataset.
+Methods mAP↑ Rank-1↑ ID2 ↓
+Base
+79.88
+91.48 0.2193
+83.92
+91.83 0.1824
++NFC
++IPG
+88.02
+94.77 0.1553
++NFC+IPG 90.39
+94.74 0.1357
+
+GalleryNFC QueryNFC mAP↑ Rank-1↑
+✗
+✗
+79.88
+91.48
+✓
+✗
+81.70
+92.04
+82.76
+91.69
+✗
+✓
+✓
+✓
+83.92
+91.83
+
+GalleryIPG QueryIPG mAP↑ Rank-1↑
+✗
+✗
+79.88
+91.48
+✓
+✗
+84.65
+92.07
+82.18
+92.40
+✗
+✓
+✓
+✓
+88.02
+94.77
+
+Table 2. Ablation study on effects of feature centralization through Identity-Guided
+Pedestrian Generation (IPG) and Neighbor
+Feature Centralization (NFC).
+
+Table 3. Ablation study of Neighbor Feature
+Centralization (NFC) Algorithm on Market1501 dataset. We test on the gallery and
+query set respectively.
+
+Table 4. Ablation study of Feature IDCentralizing with Pedestrian Generation
+(IPG) on Market1501. We test on gallery
+and query set respectively.
+
+Method
+w/o training
++IPG
++IPG+NFC
+
+mAP↑
+3.34
+52.81
+57.27
+
+R1↑
+11.4
+78.92
+82.39
+
+R5↑
+21.88
+91.21
+90.17
+
+R10↑
+28
+94.27
+92.81
+
+ID2 ↓
+0.5135
+0.2158
+0.1890
+
+Table 5. ReID performance on Market1501 with only ImageNet
+pre-trained weights without ReID training. The distribution visualized in Fig.4.
+
+Original
+
++ours
+
+Figure 4. t-SNE visualization of 10 IDs feature distribution with
+and without our method on ImageNet pre-trained weights.
+
+4. Experiments
+4.1. Implementation Details
+Data Cleaning. Training an effective generative model requires high-quality data support. In current ReID (Person
+Re-Identification) datasets, there are many low-quality images, and removing them can help reduce interference to the
+model. In our experiments, we found two main issues that
+need to be addressed:Extremely Low-quality Images: The
+dataset contains images with such low resolution that even
+the human eye cannot recognize them as a ”person”. Pose
+Estimation Failures: The pose estimation model inevitably
+fails to detect pedestrian poses in some images.
+Utilizing the feature distribution mentioned in Section3.1, we can solve the issues and get the reference image
+set Siref and target image set Sitrg of identity i. The cleansing
+process is detailed in Supplementary.
+Identity-guided Pedestrian Generation model details For
+the reference UNet and denoising UNet, we use the pretrained weights of Stable Diffusion v1.5[44]. The VAE
+
+encoder and decoder initialized with official weights[26]
+and froze. For the ReID model, we use pre-trained
+TransReID[16] without cameras on Market1501 and freeze.
+The training data collected from training set of
+Market1501[70], Mars[71], MSMT17[54] and SYSUMM01[55], with a total of 1946 different IDs. The model
+was trained for 80,000 iterations on one L20(48G) GPU
+with batch size of 4, which costs about 20 hours, and optimized by Adam[27] with a learning rate of 1e-5 and weight
+decay of 0.01. All images are resized to 512×256. We applied random flip and random erasing[76] data augmentation only on reference images.
+According to Section3.2.3, we selected 8 poses on the
+market1501 dataset as the representative poses. Each image in test set generates 8 images with these representative
+poses. The generation uses DDIM with 20 steps, classifierfree guidance with a scale of 3.5, and generator seed of 42.
+ReID test settings Test models are loaded with official
+open-source pre-trained models for testing. In addition,
+considering the generated images do not have camera IDs,
+so for feature consistency, we test without camera IDs (e.g.
+TransReID). To validate the effectiveness of our proposed
+method, image flip (Section3.2.1) trick is NOT applied in
+our experiments. On Market1501, set η = 2, and k1 =
+k2 = 2. On Occluded REID, set η = 1, and k1 = k2 = 1.
+On SYSU-MM01, set η = 1/4, and k1 = k2 = 2. The
+parameters analysis detailed in Supplementary.
+
+4.2. Improvements on State-of-the-art Methods
+To verify the exceptional feature enhancement performance
+of our framework, we selected state-of-the-art models of
+three ReID tasks, divided into CNN and ViT-based models, to demonstrate that our theory can apply to any model
+and various ReID tasks. As shown in Table.1, we achieved
+excellent enhancements on different models.
+It is worth mentioning that we help models achieve new
+SOTAs without re-rank on 3 benchmarks:
+• CNN-base CLIP-ReID on market1501:
+mAP 94.9%, Rank-1 97.3%.
+• KPR on Occluded-ReID:
+mAP 89.34%, Rank-1 91%
+• SAAI on SYSU-MM01:
+All-search mode: mAP 76.44%, Rank-1 79.33%
+Indoor-search mode: mAP 86.83%, Rank-1 84.2%
+
+4.3. ReID without Training
+TransReID loads a ViT pre-trained model on ImageNet for
+training on the ReID task. The pre-training method is based
+on contrastive learning strategies. According to the description in Section3.1, training with contrastive loss helps to
+cluster features of same label samples. Images generated
+by our Pedestrian Generation model exhibit identity consistency, meaning they possess the attributes of the same label.
+
+ref.
+
+w/ w/o
+w/ w/o
+w/ w/o
+w/ w/o
+w/ w/o
+pose IFR IFR pose IFR IFR pose IFR IFR pose IFR IFR pose IFR IFR
+
+Figure 5. The effects with and without the IFR module were visualized with five different poses randomly selected for each reference picture.
+GalleryIPG
+QueryIPG
+GalleryIPG +QueryIPG
+mAP↑ R1↑ ID2 ↓ mAP↑ R1↑ ID2 ↓ mAP↑ R1↑ ID2 ↓
+0 79.88 91.48 0.2313 79.88 91.48 0.1623 79.88 91.48 0.2193
+1 80.96 90.97 0.2087 79.99 90.83 0.1363 82.13 92.01 0.1961
+2 82.86 91.45 0.1904 81.17 92.04 0.1156 85.27 93.71 0.1773
+3 83.42 91.75 0.1837 81.55 92.25 0.1077 86.16 94.21 0.1704
+4 83.81 92.1 0.1795 81.76 92.34 0.1027 86.75 94.24 0.1661
+5 84.07 91.83 0.1758 81.85 92.07 0.0984 87.23 94.71 0.1623
+6 84.3 91.98 0.1730 81.96 92.52 0.0950 87.52 94.63 0.1593
+7 84.49 91.86 0.1707 82.03 92.37 0.0922 87.76 94.60 0.1570
+8 84.65 92.07 0.1691 82.18 92.40 0.0902 88.02 94.77 0.1553
+
+N
+
+Table 6. Performance Comparison by adding numbers of generated images for each image on gallery, query, and both
+
+Therefore, even if the features of an individual sample lack
+the pedestrian matching capability, as shown in the first row
+of Tab.5, its mAP and Rank-1 are only 3.34% and 11.4%.
+However, with our method, it improved 53.93%/70.99% to
+57.27%/82.39%. Additionally, we visualized of 10 IDs’
+feature distributions using t-SNE as shown in Fig.4.
+
+4.4. Abilation Study
+Impact of the NFC and IPG. We conducted comprehensive ablation experiments on Neighbor Feature Centralization (NFC) and Feature ID-Centralizing through IdentityGuided Generation (IPG) methods. As shown in Table2,3,4,
+which show great improvements.
+Effect of Feature Re-Distribute Module. We randomly
+selected 7 images from the Market1501 dataset, choosing
+5 different poses for each image. We visualized the results
+both with and without Identity Feature Redistribute (IFR)
+
+Figure 6. Images generated with random poses. More randomly generated images can be found in Supplementary.
+
+Module. As shown in Fig.5, the impact of ID features on
+the generated outcomes is evident.
+Effect of numbers of generated images. We randomly
+selected different numbers of images generated from the 8
+representative poses to verify the effect of feature enhancement. As shown in Tab.6, the experimental results align
+with the theory mentioned in Section3.1: the more features
+of the same ID that are aggregated, the more the adjustment noise extracted from individual images is reduced, enhancing the ID representation capability and resulting in improved matching performance.
+
+4.5. Visualizations
+Different people with the same poses across datasets. We
+are working on Market1501, SYSU-MM01, and OccludedReID datasets to visualize the 8 representative poses with
+only one model and results are shown in Fig.2.
+Random people with random poses. To demonstrate the
+advancement of our model, as shown in Fig.6, we randomly
+chose samples from the whole dataset, and each sample ran-
+
+domly chose poses, including some problematic poses, fully
+demonstrating the diversity of model. More examples on
+three datasets are visualized in Supplementary.
+
+5. Conclusion
+In this paper, we proposed a training-free person reidentification framework that fully leverages the natural
+clustering behavior of features around the identity center
+during the training process. By introducing the concept of
+feature centralization, we effectively reduced noise in individual samples and enhanced identity representation without model training. Our approach includes an identityguided pedestrian generation paradigm, capable of producing high-quality, multi-pose images with consistent identity
+features, even under challenging conditions such as visible,
+infrared, and occlusion scenarios. The neighbor feature centralization algorithm also preserves feature’s original distribution while mining potential positive samples. It can also
+be flexibly integrated with existing re-ranking methods.
+
+References
+[1] Jean-Paul Ainam, Ke Qin, Guisong Liu, and Guangchun
+Luo. Sparse label smoothing regularization for person reidentification. IEEE Access, 7:27899–27910, 2019. 3
+[2] Dosovitskiy Alexey. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:
+2010.11929, 2020. 2
+[3] Sławomir Bak, Etienne Corvee, Francois Bremond, and
+Monique Thonnat. Person re-identification using haar-based
+and dcd-based signature. In 2010 7th IEEE international
+conference on advanced video and signal based surveillance,
+pages 1–8. IEEE, 2010. 2
+[4] Ankan Kumar Bhunia, Salman Khan, Hisham Cholakkal,
+Rao Muhammad Anwer, Jorma Laaksonen, Mubarak Shah,
+and Fahad Shahbaz Khan. Person image synthesis via denoising diffusion model. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition,
+pages 5968–5976, 2023. 3
+[5] Alessandro Borgia, Yang Hua, Elyor Kodirov, and Neil
+Robertson. Gan-based pose-aware regulation for videobased person re-identification. In 2019 IEEE Winter Conference on Applications of Computer Vision (WACV), pages
+1175–1184. IEEE, 2019. 3
+[6] Weihua Chen, Xianzhe Xu, Jian Jia, Hao Luo, Yaohua Wang,
+Fan Wang, Rong Jin, and Xiuyu Sun. Beyond appearance: a semantic controllable self-supervised learning framework for human-centric visual tasks. In Proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 15050–15061, 2023. 5
+[7] Pingyang Dai, Rongrong Ji, Haibin Wang, Qiong Wu, and
+Yuyu Huang. Cross-modality person re-identification with
+generative adversarial training. In IJCAI, page 6, 2018. 3
+[8] Chanho Eom and Bumsub Ham. Learning disentangled representation for robust person re-identification. Advances in
+neural information processing systems, 32, 2019. 3
+[9] Xingye Fang, Yang Yang, and Ying Fu. Visible-infrared person re-identification via semantic alignment and affinity inference. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 11270–11279, 2023. 6
+[10] Jiawei Feng, Ancong Wu, and Wei-Shi Zheng. Shape-erased
+feature learning for visible-infrared person re-identification.
+In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition, pages 22752–22761, 2023.
+6
+[11] Dengpan Fu, Dongdong Chen, Jianmin Bao, Hao Yang, Lu
+Yuan, Lei Zhang, Houqiang Li, and Dong Chen. Unsupervised pre-training for person re-identification. In Proceedings of the IEEE/CVF conference on computer vision and
+pattern recognition, pages 14750–14759, 2021. 2
+[12] Shang Gao, Jingya Wang, Huchuan Lu, and Zimo Liu. Poseguided visible part matching for occluded person reid. In
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 11744–11752, 2020. 5
+[13] Yixiao Ge, Zhuowan Li, Haiyu Zhao, Guojun Yin, Shuai Yi,
+Xiaogang Wang, et al. Fd-gan: Pose-guided feature distilling
+gan for robust person re-identification. Advances in neural
+information processing systems, 31, 2018. 2
+
+[14] Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing
+Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, and
+Yoshua Bengio. Generative adversarial nets. Advances in
+neural information processing systems, 27, 2014. 3
+[15] Xin Hao, Sanyuan Zhao, Mang Ye, and Jianbing Shen.
+Cross-modality person re-identification via modality confusion and center aggregation. In Proceedings of the
+IEEE/CVF International Conference on Computer Vision,
+pages 16403–16412, 2021. 6
+[16] Shuting He, Hao Luo, Pichao Wang, Fan Wang, Hao Li,
+and Wei Jiang. Transreid: Transformer-based object reidentification. In Proceedings of the IEEE/CVF international
+conference on computer vision, pages 15013–15022, 2021.
+6, 7, 5
+[17] Alexander Hermans, Lucas Beyer, and Bastian Leibe. In defense of the triplet loss for person re-identification. arXiv
+preprint arXiv:1703.07737, 2017. 2
+[18] Martin Hirzer, Peter M Roth, Martin Köstinger, and Horst
+Bischof. Relaxed pairwise learned metric for person reidentification. In Computer Vision–ECCV 2012: 12th European Conference on Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part VI 12, pages 780–793.
+Springer, 2012. 2
+[19] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Advances in neural information
+processing systems, 33:6840–6851, 2020. 2, 3
+[20] Li Hu. Animate anyone: Consistent and controllable imageto-video synthesis for character animation. In Proceedings of
+the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 8153–8163, 2024. 5
+[21] Yan Huang, Qiang Wu, JingSong Xu, and Yi Zhong. Sbsgan:
+Suppression of inter-domain background shift for person reidentification. In Proceedings of the IEEE/CVF International
+Conference on Computer Vision, pages 9527–9536, 2019. 3
+[22] Zhipeng Huang, Jiawei Liu, Liang Li, Kecheng Zheng, and
+Zhengjun Zha. Modality-adaptive mixup and invariant decomposition for rgb-infrared person re-identification. In
+AAAI Conference on Artificial Intelligence, 2022. 6
+[23] Saleh Hussin Salem Hussin and Remzi Yildirim. Styleganlsro method for person re-identification. IEEE Access, 9:
+13857–13869, 2021. 3
+[24] Kongzhu Jiang, Tianzhu Zhang, Xiang Liu, Bingqiao Qian,
+Yongdong Zhang, and Feng Wu. Cross-modality transformer
+for visible-infrared person re-identification. In European
+Conference on Computer Vision, pages 480–496. Springer,
+2022. 6
+[25] Minsu Kim, Seungryong Kim, Jungin Park, Seongheon
+Park, and Kwanghoon Sohn. Partmix: Regularization strategy to learn part discovery for visible-infrared person reidentification. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pages 18621–
+18632, 2023. 6
+[26] Diederik P Kingma. Auto-encoding variational bayes. arXiv
+preprint arXiv:1312.6114, 2013. 5, 7
+[27] Diederik P Kingma. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980, 2014. 7
+[28] Martin Koestinger, Martin Hirzer, Paul Wohlhart, Peter M
+Roth, and Horst Bischof. Large scale metric learning from
+
+equivalence constraints. In 2012 IEEE conference on computer vision and pattern recognition, pages 2288–2295.
+IEEE, 2012. 2
+[29] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton.
+Imagenet classification with deep convolutional neural networks. Advances in neural information processing systems,
+25, 2012. 2
+[30] Ryan Layne, Timothy M Hospedales, Shaogang Gong, and
+Q Mary. Person re-identification by attributes. In Bmvc,
+page 8, 2012. 2
+[31] Siyuan Li, Li Sun, and Qingli Li. Clip-reid: exploiting
+vision-language model for image re-identification without
+concrete text labels. In Proceedings of the AAAI Conference
+on Artificial Intelligence, pages 1405–1413, 2023. 6, 5
+[32] Xulin Li, Yan Lu, Bin Liu, Yating Liu, Guojun Yin, Qi
+Chu, Jinyang Huang, Feng Zhu, Rui Zhao, and Nenghai
+Yu. Counterfactual intervention feature transfer for visibleinfrared person re-identification. In European conference on
+computer vision, pages 381–398. Springer, 2022. 6
+[33] Yulin Li, Jianfeng He, Tianzhu Zhang, Xiang Liu, Yongdong
+Zhang, and Feng Wu. Diverse part discovery: Occluded person re-identification with part-aware transformer. In Proceedings of the IEEE/CVF conference on computer vision
+and pattern recognition, pages 2898–2907, 2021. 5
+[34] Shengcai Liao and Stan Z Li. Efficient psd constrained asymmetric metric learning for person re-identification. In Proceedings of the IEEE international conference on computer
+vision, pages 3685–3693, 2015. 2
+[35] Shengcai Liao and Ling Shao. Interpretable and generalizable person re-identification with query-adaptive convolution
+and temporal lifting. In Computer Vision–ECCV 2020: 16th
+European Conference, Glasgow, UK, August 23–28, 2020,
+Proceedings, Part XI 16, pages 456–474. Springer, 2020. 2
+[36] Jinxian Liu, Bingbing Ni, Yichao Yan, Peng Zhou, Shuo
+Cheng, and Jianguo Hu. Pose transferrable person reidentification. In Proceedings of the IEEE conference on
+computer vision and pattern recognition, pages 4099–4108,
+2018. 3
+[37] Jialun Liu, Yifan Sun, Feng Zhu, Hongbin Pei, Yi Yang,
+and Wenhui Li. Learning memory-augmented unidirectional metrics for cross-modality person re-identification.
+2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages 19344–19353, 2022. 6
+[38] Hu Lu, Xuezhang Zou, and Pingping Zhang. Learning progressive modality-shared transformers for effective visibleinfrared person re-identification. In Proceedings of the
+AAAI conference on artificial intelligence, pages 1835–1843,
+2023. 6
+[39] Hao Luo, Youzhi Gu, Xingyu Liao, Shenqi Lai, and Wei
+Jiang. Bag of tricks and a strong baseline for deep person
+re-identification. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition workshops,
+pages 0–0, 2019. 5
+[40] Fei Ma, Xiao-Yuan Jing, Xiao Zhu, Zhenmin Tang, and
+Zhiping Peng. True-color and grayscale video person reidentification. IEEE Transactions on Information Forensics
+and Security, 15:115–129, 2019. 2
+
+[41] Niall McLaughlin, Jesus Martinez Del Rincon, and Paul
+Miller. Data-augmentation for reducing dataset bias in person re-identification. In 2015 12th IEEE International conference on advanced video and signal based surveillance
+(AVSS), pages 1–6. IEEE, 2015. 2
+[42] Zhiqi Pang, Jifeng Guo, Wenbo Sun, Yanbang Xiao, and
+Ming Yu. Cross-domain person re-identification by hybrid
+supervised and unsupervised learning. Applied Intelligence,
+52(3):2987–3001, 2022. 3
+[43] Xuelin Qian, Yanwei Fu, Tao Xiang, Wenxuan Wang, Jie
+Qiu, Yang Wu, Yu-Gang Jiang, and Xiangyang Xue. Posenormalized image generation for person re-identification. In
+Proceedings of the European conference on computer vision
+(ECCV), pages 650–667, 2018. 2, 3
+[44] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Björn Ommer. High-resolution image
+synthesis with latent diffusion models. In Proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 10684–10695, 2022. 3, 4, 6
+[45] Aliaksandr Siarohin, Enver Sangineto, Stéphane Lathuiliere,
+and Nicu Sebe. Deformable gans for pose-based human image generation. In Proceedings of the IEEE conference on
+computer vision and pattern recognition, pages 3408–3416,
+2018. 3
+[46] Vladimir Somers, Christophe De Vleeschouwer, and
+Alexandre Alahi. Body part-based representation learning
+for occluded person re-identification. In Proceedings of the
+IEEE/CVF winter conference on applications of computer
+vision, pages 1613–1623, 2023. 6, 5
+[47] Vladimir Somers, Alexandre Alahi, and Christophe De
+Vleeschouwer. Keypoint promptable re-identification. In
+European Conference on Computer Vision, pages 216–233.
+Springer, 2025. 6, 5
+[48] Yifan Sun, Liang Zheng, Weijian Deng, and Shengjin Wang.
+Svdnet for pedestrian retrieval. In Proceedings of the IEEE
+international conference on computer vision, pages 3800–
+3808, 2017. 2
+[49] Yifan Sun, Liang Zheng, Yi Yang, Qi Tian, and Shengjin
+Wang. Beyond part models: Person retrieval with refined
+part pooling (and a strong convolutional baseline). In Proceedings of the European conference on computer vision
+(ECCV), pages 480–496, 2018. 5
+[50] Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jon
+Shlens, and Zbigniew Wojna. Rethinking the inception architecture for computer vision. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages
+2818–2826, 2016. 3
+[51] Guan’an Wang, Shuo Yang, Huanyu Liu, Zhicheng Wang,
+Yang Yang, Shuliang Wang, Gang Yu, Erjin Zhou, and Jian
+Sun. High-order information matters: Learning relation and
+topology for occluded person re-identification. In Proceedings of the IEEE/CVF conference on computer vision and
+pattern recognition, pages 6449–6458, 2020. 5
+[52] Tao Wang, Hong Liu, Pinhao Song, Tianyu Guo, and Wei
+Shi. Pose-guided feature disentangling for occluded person
+re-identification based on transformer. In Proceedings of the
+AAAI conference on artificial intelligence, pages 2540–2549,
+2022. 5
+
+[53] Zhikang Wang, Feng Zhu, Shixiang Tang, Rui Zhao, Lihuo
+He, and Jiangning Song. Feature erasing and diffusion network for occluded person re-identification. In Proceedings
+of the IEEE/CVF conference on computer vision and pattern
+recognition, pages 4754–4763, 2022. 5
+[54] Longhui Wei, Shiliang Zhang, Wen Gao, and Qi Tian.
+Person transfer gan to bridge domain gap for person reidentification. In Proceedings of the IEEE conference on
+computer vision and pattern recognition, pages 79–88, 2018.
+7
+[55] Ancong Wu, Wei-Shi Zheng, Hong-Xing Yu, Shaogang
+Gong, and Jianhuang Lai. Rgb-infrared cross-modality person re-identification. In Proceedings of the IEEE international conference on computer vision, pages 5380–5389,
+2017. 2, 7
+[56] Jianbing Wu, Hong Liu, Yuxin Su, Wei Shi, and Hao Tang.
+Learning concordant attention via target-aware alignment for
+visible-infrared person re-identification. In 2023 IEEE/CVF
+International Conference on Computer Vision (ICCV), pages
+11088–11097, 2023. 6
+[57] Qiong Wu, Pingyang Dai, Jie Chen, Chia-Wen Lin, Yongjian
+Wu, Feiyue Huang, Bineng Zhong, and Rongrong Ji. Discover cross-modality nuances for visible-infrared person reidentification. In Proceedings of the IEEE/CVF conference
+on computer vision and pattern recognition, pages 4330–
+4339, 2021. 6
+[58] Cheng Yan, Guansong Pang, Jile Jiao, Xiao Bai, Xuetao
+Feng, and Chunhua Shen. Occluded person re-identification
+with single-scale global representations. In Proceedings of
+the IEEE/CVF international conference on computer vision,
+pages 11875–11884, 2021. 5
+[59] Jinrui Yang, Jiawei Zhang, Fufu Yu, Xinyang Jiang, Mengdan Zhang, Xing Sun, Ying-Cong Chen, and Wei-Shi Zheng.
+Learning to know where to see: A visibility-aware approach
+for occluded person re-identification. In Proceedings of
+the IEEE/CVF international conference on computer vision,
+pages 11885–11894, 2021. 5
+[60] Zhendong Yang, Ailing Zeng, Chun Yuan, and Yu Li. Effective whole-body pose estimation with two-stages distillation.
+In Proceedings of the IEEE/CVF International Conference
+on Computer Vision, pages 4210–4220, 2023. 3
+[61] Hao Yu, Xu Cheng, Wei Peng, Weihao Liu, and Guoying
+Zhao. Modality unifying network for visible-infrared person
+re-identification. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 11185–11195,
+2023. 6
+[62] Hong-Xing Yu, Ancong Wu, and Wei-Shi Zheng. Unsupervised person re-identification by deep asymmetric metric
+embedding. IEEE transactions on pattern analysis and machine intelligence, 42(4):956–973, 2018. 2
+[63] Chengyuan Zhang, Lei Zhu, ShiChao Zhang, and Weiren Yu.
+Pac-gan: An effective pose augmentation scheme for unsupervised cross-view person re-identification. Neurocomputing, 387:22–39, 2020. 3
+[64] Guiwei Zhang, Yongfei Zhang, and Zichang Tan. Protohpe: Prototype-guided high-frequency patch enhancement
+for visible-infrared person re-identification. In Proceedings
+
+of the 31st ACM International Conference on Multimedia,
+pages 944–954, 2023. 2, 6
+[65] Guiwei Zhang, Yongfei Zhang, Tianyu Zhang, Bo Li, and
+Shiliang Pu. Pha: Patch-wise high-frequency augmentation
+for transformer-based person re-identification. In Proceedings of the IEEE/CVF conference on computer vision and
+pattern recognition, pages 14133–14142, 2023. 2
+[66] Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. Adding
+conditional control to text-to-image diffusion models. In
+Proceedings of the IEEE/CVF International Conference on
+Computer Vision, pages 3836–3847, 2023. 2, 3
+[67] Qiang Zhang, Changzhou Lai, Jianan Liu, Nianchang
+Huang, and Jungong Han. Fmcnet: Feature-level modality
+compensation for visible-infrared person re-identification. In
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 7349–7358, 2022. 6
+[68] Yukang Zhang and Hanzi Wang. Diverse embedding expansion network and low-light cross-modality benchmark for
+visible-infrared person re-identification. In Proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 2153–2162, 2023. 6
+[69] Yiyuan Zhang, Sanyuan Zhao, Yuhao Kang, and Jianbing
+Shen. Modality synergy complement learning with cascaded
+aggregation for visible-infrared person re-identification. In
+European Conference on Computer Vision, pages 462–479.
+Springer, 2022. 6
+[70] Liang Zheng, Liyue Shen, Lu Tian, Shengjin Wang, Jingdong Wang, and Qi Tian. Scalable person re-identification:
+A benchmark. In Proceedings of the IEEE international conference on computer vision, pages 1116–1124, 2015. 2, 7
+[71] Liang Zheng, Zhi Bie, Yifan Sun, Jingdong Wang, Chi Su,
+Shengjin Wang, and Qi Tian. Mars: A video benchmark
+for large-scale person re-identification. In Computer Vision–
+ECCV 2016: 14th European Conference, Amsterdam, The
+Netherlands, October 11-14, 2016, Proceedings, Part VI 14,
+pages 868–884. Springer, 2016. 7
+[72] Zhedong Zheng, Liang Zheng, and Yi Yang. Unlabeled samples generated by gan improve the person re-identification
+baseline in vitro. In Proceedings of the IEEE international
+conference on computer vision, pages 3754–3762, 2017. 2,
+3, 5
+[73] Zhedong Zheng, Xiaodong Yang, Zhiding Yu, Liang Zheng,
+Yi Yang, and Jan Kautz. Joint discriminative and generative learning for person re-identification. In proceedings of
+the IEEE/CVF conference on computer vision and pattern
+recognition, pages 2138–2147, 2019. 2, 3
+[74] Zhun Zhong, Liang Zheng, Donglin Cao, and Shaozi Li. Reranking person re-identification with k-reciprocal encoding.
+In Proceedings of the IEEE conference on computer vision
+and pattern recognition, pages 1318–1327, 2017. 2, 3
+[75] Zhun Zhong, Liang Zheng, Zhedong Zheng, Shaozi Li, and
+Yi Yang. Camstyle: A novel data augmentation method for
+person re-identification. IEEE Transactions on Image Processing, 28(3):1176–1190, 2018. 3
+[76] Zhun Zhong, Liang Zheng, Guoliang Kang, Shaozi Li, and
+Yi Yang. Random erasing data augmentation. In Proceedings of the AAAI conference on artificial intelligence, pages
+13001–13008, 2020. 2, 7
+
+[77] Kuan Zhu, Haiyun Guo, Zhiwei Liu, Ming Tang, and Jinqiao Wang. Identity-guided human semantic parsing for person re-identification. In Computer Vision–ECCV 2020: 16th
+European Conference, Glasgow, UK, August 23–28, 2020,
+Proceedings, Part III 16, pages 346–363. Springer, 2020. 5
+[78] Jiaxuan Zhuo, Zeyu Chen, Jianhuang Lai, and Guangcong
+Wang. Occluded person re-identification. In 2018 IEEE
+international conference on multimedia and expo (ICME),
+pages 1–6. IEEE, 2018. 2
+
+From Poses to Identity: Training-Free Person Re-Identification
+via Feature Centralization
+Supplementary Material
+6. Methods Supplementary
+
+is the positive sample (same class), and zn is the negative
+sample (different class). The triplet loss is defined as:
+
+6.1. Aggregation role of ReID loss functions
+Currently, ReID models commonly use cross-entropy loss
+to impose ID-level constraints, and contrastive losses (such
+as triplet loss) to bring features of the same ID closer while
+pushing apart features of different IDs. Some models also
+utilize center loss to construct identity centers for dynamically constraining the IDs. These methods lead to one common result: feature aggregation. From the perspective of
+the gradient of the loss functions, we could prove that the
+feature vectors of each ID in current ReID tasks naturally
+aggregate around a center or mean in the followings.
+Cross-Entropy Loss is often used in classification tasks,
+optimizing the model by maximizing the probability of
+the correct class. Given N samples, each with a feature
+vector zi ∈ Rd , and its corresponding class label yi ∈
+{1, 2, . . . , C}, the cross-entropy loss is defined as:
+LCE = −
+
+N
+exp(wy⊤i zi + byi )
+1 X
+log PC
+⊤
+N i=1
+j=1 exp(wj zi + bj )
+
+(10)
+
+where wj and bj are the weight vector and bias for class j,
+respectively.
+For simplicity, assume that the final layer is a linear classifier without bias, i.e., bj = 0. When the loss is minimized,
+the optimization objective is to maximize the score wy⊤i zi of
+the correct class while minimizing the scores wj⊤ zi of other
+classes (j ̸= yi ).
+By gradient descent optimization, we can obtain:
+X
+∂LCE
+= 1/N (pyi − 1) wyi + 1/N
+pij wj
+∂zi
+
+(11)
+
+j̸=yi
+
+exp(w⊤ zi )
+
+j
+where pij = PC exp(w
+.
+⊤
+k=1
+k zi )
+With the loss function converges, pyi → 1 and pij →
+0(j ̸= yi ). The feature zi is optimized to be near a linear
+combination of the class weight vectors wyi . This indicates
+that features of the same class will tend toward a common
+direction, thus achieving feature aggregation.
+
+Contrastive loss (Triplet Loss as example) optimizes the
+feature space by bringing samples of the same class closer
+and pushing samples of different classes further apart. A
+triplet (za , zp , zn ) is defined, where za is the anchor, zp
+
+
+LTriplet = max ∥za − zp ∥22 − ∥za − zn ∥22 + α, 0 (12)
+where α is the margin parameter.
+To minimize the loss, the optimization objective is:
+∥za − zp ∥22 + α < ∥za − zn ∥22
+∂LTriplet
+= 2(zn − zp ),
+∂za
+∂LTriplet
+= 2(zp − za ),
+∂zp
+∂LTriplet
+= 2(za − zn ).
+∂zn
+
+(13)
+
+(14)
+(15)
+(16)
+
+By minimizing triplet loss, the feature zp is pulled closer
+to za , while zn is pushed away. Through this mechanism,
+Triplet Loss encourages features of the same class to aggregate together while features of different classes are separated from each other.
+Center loss further enhances feature aggregation by introducing a feature center for each class. For each class j,
+there is a feature center cj , and the center loss is defined as:
+N
+
+LCenter =
+
+1X
+∥zi − cyi ∥22
+2 i=1
+
+(17)
+
+The goal of minimizing center loss is to make each sample’s feature vector zi as close as possible to its corresponding class center cyi . Through gradient descent, we obtain:
+∂LCenter
+= zi − cy i
+∂zi
+(
+cj − zi
+∂LCenter
+=
+∂cj
+0
+
+(18)
+if yi = j
+otherwise
+
+(19)
+
+Thus, the optimization process not only pulls sample features closer to their centers but also dynamically updates
+each class’s center to represent the mean of that class’s feature distribution. This directly encourages features of the
+same class to aggregate together.
+
+6.2. Identity Density (ID2 ) Metric
+Identity density is one aspect of measuring ReID effectiveness. However, there is currently no quantitative metric for this, and researchers commonly rely on visualization tools like t-SNE to demonstrate model performance.
+Due to the large number of IDs, this approach is limited
+to visualizing only a few IDs, making it challenging to assess model performance from a global perspective quantitatively. Some researchers exploit this limitation by selecting
+the best-performing IDs of their models for visualization.
+To address this, we propose an Identity Density (ID2 ) Metric. This metric evaluates the global ID aggregation performance by taking each ID center across the entire test set
+(gallery and query) as a benchmark.
+
+
+ni
+N
+fij
+1 X 1 X
+d
+, ci
+ID =
+N i=1 ni j=1
+∥fij ∥2
+2
+
+(21)
+
+Both the feature vectors fij and the identity centers ci
+are L2 -normalized to ensure consistent feature scaling. The
+function d(·, ·) represents the Euclidean distance.
+
+6.3. Pose Encoder Details
+The Pose Encoder module is designed to extract highdimensional pose embeddings from the input poses.
+Epose = PoseEncoder(xpose )
+
+(22)
+
+The input is a feature map of size Cin × H × W , denoted as xpose , where Cin is the number of input channels,
+and H, W are the height, and width of the input. The first
+convolution layer is defined as:
+E0 = SiLU(Convin (xpose ))
+
+(23)
+
+where Convin is a convolution operation with kernel size
+3 × 3, and the number of channels changes from Cin = 3 to
+C0 = 16:
+Each block applies a normal 3 × 3 Conv, a 3 × 3 Conv
+with stride 2 to reduce spatial dimensions, and followed by
+a SiLU activate function. For the i-th convolutional block,
+the operations can be expressed as:
+Ei+1 = SiLU(Convi,stride=2 (Convi (Ei )))
+
+Step 1: Compute Distance Matrix Given all feature vectors in the gallery {zi }N
+i=1 , our goal is to enhance each feature vector by aggregating features from its mutual nearest
+neighbors. Compute the pairwise distance matrix D = [dij ]
+where dij represents the distance between features zi and
+zj . To avoid self-matching, set the diagonal elements to a
+large constant, i.e.
+for i = 1, 2, . . . , N
+
+(20)
+
+n
+
+i
+1 X
+fij
+ni j=1 ∥fij ∥2
+
+6.4. Detailed Description of Neighbor Feature Centralization (NFC)
+
+dii = C,
+
+where N is the total number of unique IDs in the test set,
+and ni is the number of samples for ID i. The feature vector
+of the j-th sample of ID i is denoted as fij , and ci represents
+the identity center of ID i, computed as follows:
+ci =
+
+The output Conv layer maps the features from the last
+block to the target embedding dimension Cout = 320, expressed as:
+Epose = Convout (E4 )
+(25)
+
+(24)
+
+The number of channels for each block is as follows:
+[C0 , C1 , C2 , C3 ] = [16, 32, 64, 128]
+
+Step 2: Find Top k1 Nearest Neighbors For each feature
+zi , find its top k1 nearest neighbors based on the distance
+matrix D. Denote the set of indices of these neighbors as:
+Ni = TopKk1 ({dij }N
+j=1 )
+
+(26)
+
+Step 3: Identify Mutual Nearest Neighbors For each
+feature zi , identifies its mutual nearest neighbors by checking whether each neighbor in Ni also considers zi as one of
+its top k2 nearest neighbors. Specifically, for each j ∈ Ni ,
+checks if i ∈ Njk2 , where Njk2 is the set of indices of the
+top k2 nearest neighbors of zj . If this condition is satisfied,
+add j to the mutual nearest neighbor set Mi :
+Mi = {j | j ∈ Ni , i ∈ Njk2 }
+
+(27)
+
+Step 4: Feature Centralization Enhancement Then it
+could centralize each feature vector zi by aggregating the
+features of its mutual nearest neighbors:
+X
+zcentralized
+= zi +
+zj
+(28)
+i
+j∈Mi
+
+This aggregation reduces feature noise and improves discriminability by incorporating information from similar features.
+
+7. Experiments Supplementary
+7.1. Data Cleansing
+Training an effective generative model requires high-quality
+data support. In current ReID (Person Re-Identification)
+datasets, there are many low-quality images, and removing them can help reduce interference to the model. In our
+experiments, we found two main issues that need to be addressed: Extremely Low-quality Images: The dataset contains images with such low resolution that even the human
+
+95
+91.48
+90.2
+
+90
+
+88.3
+
+90.3
+
+90
+
+89.8
+
+89.8
+
+89
+
+89.04
+
+85
+80
+
+79.88
+
+80.6
+
+80.4
+
+80.3
+
+79.6
+
+79.8
+78
+
+77.6
+
+78.73
+
+edge of the distribution, largely due to the data itself is out
+of the distribution of its identity, and it can be picked up.
+Let fi ∈ Rd denote the feature vector of the i-th sample
+of a particular identity, where d is the feature dimension.
+The mean vector µ and covariance matrix Σ are computed
+as follows:
+N
+
+75
+
+µ=
+
+1 X
+fi ,
+N i=1
+
+N
+
+Σ=
+
+1 X
+(fi − µ)(fi − µ)⊤
+N i=1
+
+(29)
+
+70
+base
+
+1
+
+2
+
+3
+
+4
+map
+
+5
+
+6
+
+7
+
+8
+
+rank1
+
+Figure 7. ReID results with images generated with the same pose
+on Market1501.
+
+where N is the number of samples for a given ID.
+To detect outliers, we compute the Mahalanobis distance
+di of each feature vector fi from the mean vector µ, defined
+as:
+q
+(30)
+disi = (fi − µ)⊤ Σ−1 (fi − µ)
+Given that the feature vectors are assumed to follow a
+multivariate normal distribution, we use quantiles of the
+Mahalanobis distance to filter out outliers. Specifically, we
+define a lower bound Qp and an upper bound Q1−p based
+on the p-th and (1 − p)-th quantiles, respectively. Samples
+with distances outside this range are considered outliers and
+are removed, and can get a set Siref for ith ID:
+Siref = {xi | disi ∈ [Qp , Q1−p ]}
+
+(31)
+
+7.1.2. Pose Filtering for ’Failed’ Pose Estimation
+Figure 8. Impact of the quality coefficient η with TransReID on
+Market1501. The dark color lines are the baseline.
+
+We designed a pose filtering algorithm called PoseValid
+to eliminate cases where pose extraction has ”completely
+failed.” This algorithm checks the validity of the pose keypoints based on factors such as occlusion, keypoint positions, angles, and limb proportions, then get the set of valid
+poses.
+Sitrg = {xi | PoseValid(xi ) and disi ∈ [Qp , Q1−p ]} (32)
+where the pose detector in this paper uses pretrained model
+of DWpose[60]. Given a set of keypoints representing a
+pose, we normalize the pose using the following steps:
+1. Compute the body height (h):
+Calculate the Euclidean distance between the Neck (keypoint 1) and the Left Hip (keypoint 11):
+h = ∥kNeck − kLHip ∥
+
+Figure 9. k1 /k2 analysis of Neighbor Feature Centralization
+(NFC) with TransReID on Market1501 without re-ranking.
+
+2. Translate the pose:
+Shift all keypoints so that the Neck is at the origin:
+k′i = ki − kNeck
+
+eye cannot recognize them as a ”person”. Pose Estimation
+Failures: The pose estimation model inevitably fails to detect pedestrian poses in some images.
+7.1.1. Extremely Low-quality Images
+To address this, manual filtering is impractical. Therefore,
+we designed an automated filtering algorithm. We leverage
+normal distribution of feature vector, if the feature on the
+
+3. Scale the pose:
+Divide each keypoint by the body height to normalize
+the size:
+k′
+knormalized
+= i
+i
+h
+Then, the filtering process of PoseValid function evaluates
+the validity of pose keypoints by applying constraints on
+limb lengths, symmetry, and keypoint positions.
+
+Market1501
+SYSU-MM01
+Occluded-ReID
+
+Figure 10. More random generated images on three datasets.
+
+SYSU-MM01
+
+Market1501
+
+Methods
+
+Figure 11. Some outliers detected via the mechanism formulated
+as Equation.31 on Market1501 and SYSU-MM01 with quartile
+0.005.
++Ours
+✗
+✗
+✓
+✓
+
++Rerank
+✗
+✓
+✗
+✓
+
+mAP
+79.88
+89.56
+90.39
+92.79
+
+Rank1
+91.48
+92.07
+94.74
+94.83
+
+Table 7. Compared to k-reciprocal rerank with official settings on
+Market1501 (k1 =20,k2 =6).
+Methods
+TransReID on MSMT17
++ours
+
+mAP
+67.80
+74.06
+
+Rank1
+85.33
+86.55
+
+Table 8. Experiment on MSMT17 with TransReID and their official weights.
+
+BoT[39]
+PCB[49]
+VGTri[59]
+PVPM[12]
+HOReID[51]
+ISP[77]
+PAT[33]
+TRANS[16]
+CLIP[31]
+SOLIDER[6]
+SSGR[58]
+FED[53]
+BPBreid[46]
+PFD[52]
+KPRIN [47]
+KPRSOL [47]
+CLIP+ours
+KPRIN +ours
+
+Market1501
+Rank-1 mAP
+94.5
+85.9
+93.8
+81.6
+94.2
+84.9
+95.3
+88.6
+95.4
+88.0
+95.2
+88.9
+95.7
+89.8
+96.9
+93.9
+96.1
+89.3
+95.0
+86.3
+95.7
+89.4
+95.5
+89.7
+95.9
+89.6
+96.62 93.22
+97.3
+94.9
+-
+
+Occluded-reID
+Rank-1 mAP
+58.4
+52.3
+81.0
+71.0
+66.8
+59.5
+80.3
+70.2
+81.6
+72.1
+78.5
+72.9
+86.3
+79.3
+82.9
+75.2
+83.0
+81.5
+85.4
+79.1
+84.83
+82.6
+91
+89.34
+
+Table 9. Comparisons with state-of-the-art methods on Market1501 and Occluded-reID.
+
+7.4. Collaborate with Re-ranking
+Since our method does not change the features’ original distribution, it could collaborate post-processing strategies like
+rerank, as shown in Tab.7.
+
+7.5. Results on MSMT17 with TransReID
+7.2. Generation quality and Pose Representation
+Study
+To assess the quality of the generated images, we replaced
+the real images in the dataset with images of the same pose
+and performed inference validation. The results, as shown
+in Fig.7, indicate that the original model still successfully
+matches pedestrians without significant performance degradation. Even with all images in the same pose, the model
+can effectively differentiate between individuals. This suggests that our generated images are of high quality, retaining
+the main characteristics of the original images without notably impacting the ReID model. Moreover, we found that
+pedestrians walking at an angle have higher distinguishability compared to other poses (front, back, and side views),
+which are more representative of their identities.
+
+7.3. More Random Generation
+We provide additional randomly generated images in
+Fig.10 from Market-1501, SYSU-MM01 and OccludedReID datasets.
+
+We conduct a simple experiment on MSMT17 dataset with
+with TransReID and their official pre-trained weights. As
+shown in Tab.8.
+
+7.6. Comparisons with state-of-the-art methods on
+three ReID benchmarks
+Comparison on three ReID benchmarks. Since Our method
+can be applied to any baseline, we choose three methods
+from three benchmarks which have the official codes and
+pre-trained weights. With our method, we achieve the new
+SOTA in three benchmarks, as shown in Fig.9 and Fig.10.
+
+7.7. Analysis on quality coefficient η of Generation
+Model
+Fig.8 illustrates the effect of adjusting the coefficient η on
+the performance of the ReID model. To evaluate this impact, we gradually increased the value of η and observed
+changes on the mAP and Rank-1 metrics.
+As the value of η increases, the performance of the ReID
+model improves, reaching an optimal point. At η = 2, both
+mAP and Rank-1 achieve their maximum values of 88.02%
+and 94.77%, respectively. However, further increasing η
+
+Methods
+PMT[38]
+MCLNet [15]
+MAUM [37]
+CAL[56]
+SAAI(w/o AIM) [9]
+SEFL[10]
+PartMix[25]
+MID [22]
+FMCNet [67]
+MPANet [57]
+CMT [24]
+protoHPE [64]
+MUN [61]
+MSCLNet [69]
+DEEN [68]
+CIFT [32]
+SAAI+ours
+
+All-Search
+mAP Rank-1
+66.13 67.70
+61.98 65.40
+68.79 71.68
+71.73 74.66
+71.81 75.29
+72.33 77.12
+74.62 77.78
+59.40 60.27
+62.51 66.34
+68.24 70.58
+68.57 71.88
+70.59 71.92
+73.81 76.24
+71.64 76.99
+71.80 74.70
+74.79 74.08
+76.44 79.33
+
+Indoor-Search
+mAP Rank-1
+77.81 72.95
+76.58 72.56
+81.94
+76.9
+83.68 79.69
+84.6
+81.59
+82.95 82.07
+84.38 81.52
+70.12 64.86
+74.09 68.15
+80.95 76.74
+79.91 76.90
+81.31 77.81
+82.06 79.42
+81.17 78.49
+83.30 80.30
+85.61 81.82
+86.83
+84.2
+
+Table 10. Comparison with state-of-the-art methods on SYSUMM01 without re-ranking.
+
+beyond this point leads to a slight decline in performance.
+It is easy to find that using generated images to centralize
+features is effective. However, considering the quality of
+the generated image, direct adding, although also effective,
+may not always achieve the best results. Therefore adjusting
+η according to the generation quality of the model in this
+dataset can better centralize the features.
+
+7.8. Analysis on k1 /k2 of Neighbor Feature Centralization
+We conducted a detailed analysis of different k1 and k2
+combinations, evaluating the results of feature centralization enhancement separately on the Query and Gallery sets,
+as well as the combined effect (as shown in the Fig.9). The
+selection of these two parameters primarily depends on the
+number of potential positive samples within the set (adjusting k1 ) and the confidence in feature associations (adjusting
+k2). Overall, medium parameter combinations (k1 and k2 in
+the range of 2-4) provide relatively optimal performance.
+
+

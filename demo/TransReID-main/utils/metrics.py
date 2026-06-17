@@ -88,13 +88,24 @@ def eval_func(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=50):
 
 
 class R1_mAP_eval():
-    def __init__(self, num_query, max_rank=50, feat_norm=True, reranking=False, nfc=False):
+    def __init__(
+        self,
+        num_query,
+        max_rank=50,
+        feat_norm=True,
+        reranking=False,
+        nfc=False,
+        ipg_fusion_eta=2.0,
+        ipg_branch_norm=False,
+    ):
         super(R1_mAP_eval, self).__init__()
         self.num_query = num_query
         self.max_rank = max_rank
         self.feat_norm = feat_norm
         self.reranking = reranking
         self.nfc = nfc
+        self.ipg_fusion_eta = ipg_fusion_eta
+        self.ipg_branch_norm = ipg_branch_norm
 
     def reset(self):
         self.feats = []
@@ -103,7 +114,11 @@ class R1_mAP_eval():
         self.feats_ipg = []
 
     def update(self, output):  # called once for each batch
-        feat, pid, camid, feat_ipg = output
+        if len(output) == 3:
+            feat, pid, camid = output
+            feat_ipg = feat
+        else:
+            feat, pid, camid, feat_ipg = output
         self.feats.append(feat.cpu())
         self.pids.extend(np.asarray(pid))
         self.camids.extend(np.asarray(camid))
@@ -111,14 +126,14 @@ class R1_mAP_eval():
 
     def compute(self):  # called after each epoch
         feats = torch.cat(self.feats, dim=0)
-        
         feats_ipg = torch.cat(self.feats_ipg, dim=0)
-        eta = 2
-        # feats = torch.nn.functional.normalize(feats, dim=1, p=2)
-        # feats_ipg = torch.nn.functional.normalize(feats_ipg, dim=1, p=2)
-        feats = feats + eta * feats_ipg
-        
-        
+
+        if self.ipg_branch_norm:
+            feats = torch.nn.functional.normalize(feats, dim=1, p=2)
+            feats_ipg = torch.nn.functional.normalize(feats_ipg, dim=1, p=2)
+
+        feats = feats + self.ipg_fusion_eta * feats_ipg
+
         if self.feat_norm:
             print("The test feature is normalized")
             feats = torch.nn.functional.normalize(feats, dim=1, p=2)  # along channel

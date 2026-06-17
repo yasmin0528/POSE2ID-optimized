@@ -35,20 +35,87 @@ python visualize_pq_ipg.py
 python visualize_pq_ipg.py 
     --pose_dir IPG/standard_poses 
     --keypoint_file demo/TransReID-main/datasets/keypoint_train.txt
+Found 8 standard poses in IPG/standard_poses
+  1.jpg: quality = 0.655897
+  2.jpg: quality = 0.575533
+  3.jpg: quality = 0.573451
+  4.jpg: quality = 0.501651
+  5.jpg: quality = 0.647325
+  6.jpg: quality = 0.626394
+  7.jpg: quality = 0.590326
+  8.jpg: quality = 0.630734
 
-python visualize_pq_ipg.py \
-    --pose_dir IPG/standard_poses \
+============================================================
+PQ-IPG Weight Summary:
+============================================================
+  Pose 1 (1.jpg): quality=0.6559, weight=0.1391
+  Pose 2 (2.jpg): quality=0.5755, weight=0.1185
+  Pose 3 (3.jpg): quality=0.5735, weight=0.1180
+  Pose 4 (4.jpg): quality=0.5017, weight=0.1022
+  Pose 5 (5.jpg): quality=0.6473, weight=0.1368
+  Pose 6 (6.jpg): quality=0.6264, weight=0.1312
+  Pose 7 (7.jpg): quality=0.5903, weight=0.1220
+  Pose 8 (8.jpg): quality=0.6307, weight=0.1323
+
+  Equal weight baseline: 0.1250 per pose
+  Max weight: 0.1391 (Pose 1)
+  Min weight: 0.1022 (Pose 4)
+  Weight range: 0.0369
+
+Visualization saved to: viz_pq_ipg.png
+
+Analyzing keypoint quality from: demo/TransReID-main/datasets/keypoint_train.txt
+Total samples: 38632
+============================================================
+  Mean quality: 0.7550 +/- 0.1277
+  Min quality: 0.0000, Max quality: 1.0236
+  Mean visible keypoints: 11.5 / 20
+  Samples with < 5 keypoints: 208 (0.5%)
+  Samples with >= 15 keypoints: 607 (1.6%)
+
+python visualize_pq_ipg.py 
+    --pose_dir IPG/standard_poses 
     --keypoint_file demo/TransReID-main/datasets/keypoint_test.txt
 ```
+Found 8 standard poses in IPG/standard_poses
+  1.jpg: quality = 0.655897
+  2.jpg: quality = 0.575533
+  3.jpg: quality = 0.573451
+  4.jpg: quality = 0.501651
+  5.jpg: quality = 0.647325
+  6.jpg: quality = 0.626394
+  7.jpg: quality = 0.590326
+  8.jpg: quality = 0.630734
+
+============================================================
+PQ-IPG Weight Summary:
+============================================================
+  Pose 1 (1.jpg): quality=0.6559, weight=0.1391
+  Pose 2 (2.jpg): quality=0.5755, weight=0.1185
+  Pose 3 (3.jpg): quality=0.5735, weight=0.1180
+  Pose 4 (4.jpg): quality=0.5017, weight=0.1022
+  Pose 5 (5.jpg): quality=0.6473, weight=0.1368
+  Pose 6 (6.jpg): quality=0.6264, weight=0.1312
+  Pose 7 (7.jpg): quality=0.5903, weight=0.1220
+  Pose 8 (8.jpg): quality=0.6307, weight=0.1323
+
+  Equal weight baseline: 0.1250 per pose
+  Max weight: 0.1391 (Pose 1)
+  Min weight: 0.1022 (Pose 4)
+  Weight range: 0.0369
+
+Visualization saved to: viz_pq_ipg.png
+
+Analyzing keypoint quality from: demo/TransReID-main/datasets/keypoint_test.txt
+Total samples: 12080
+============================================================
+  Mean quality: 0.7563 +/- 0.1319
+  Min quality: 0.0000, Max quality: 0.9886
+  Mean visible keypoints: 11.6 / 20
+  Samples with < 5 keypoints: 30 (0.2%)
+  Samples with >= 15 keypoints: 193 (1.6%)
 
 输出：`viz_pq_ipg.png`，展示每个标准姿态的骨骼图、权重值、质量条。
-
-预期输出示例：
-```
-Pose 1: quality=0.6698, weight=0.1414   (frontal, full body  → high)
-Pose 4: quality=0.5029, weight=0.1013   (side/back, partial  → low)
-Pose 5: quality=0.6582, weight=0.1382   (frontal, balanced   → high)
-```
 
 ---
 
